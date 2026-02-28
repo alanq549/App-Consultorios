@@ -1,0 +1,13 @@
+version: "3.9"
+services:
+  redis:
+    image: redis:7
+    container_name: redis
+    ports:
+      - "6379:6379"       # expone Redis al host
+    volumes:
+      - redis-data:/data  # persistencia de datos
+    command: ["redis-server", "--appendonly", "yes"]
+
+volumes:
+  redis-data:

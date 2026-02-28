@@ -1,0 +1,24 @@
+@layer components {
+  .topbar-nav {
+    @apply flex items-center gap-2 p-1 rounded-xl border border-white/10 
+           bg-gray-200/20 dark:bg-white/5 transition-all duration-300;
+  }
+
+  .topbar-navlink {
+    @apply flex items-center gap-2 px-4 py-1.5 rounded-lg text-sm font-medium 
+           text-gray-500 dark:text-neutral-400 border border-transparent 
+           hover:text-gray-900 dark:hover:text-white 
+           hover:bg-white/50 dark:hover:bg-white/5 transition-all duration-200;
+  }
+
+  .topbar-navlink-active {
+    @apply font-bold bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 
+           border-white/20 dark:border-white/10 shadow-[0_8px_32px_0_rgba(99,102,241,0.1)] relative;
+  }
+
+  /* Indicador lateral para item activo */
+  .topbar-navlink-active::before {
+    content: "";
+    @apply absolute left-0 w-1 h-1/2 bg-indigo-500 rounded-r-full;
+  }
+}

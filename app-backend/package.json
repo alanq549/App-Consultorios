@@ -1,0 +1,43 @@
+{
+  "name": "app-backend",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "dev": "ts-node-dev --respawn -r dotenv/config -r tsconfig-paths/register src/index.ts",
+    "dev:worker": "ts-node-dev --respawn -r dotenv/config -r tsconfig-paths/register src/modules/appointments/appointment.worker.ts",
+    "build": "tsc",
+    "start": "node dist/index.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@prisma/adapter-planetscale": "^7.2.0",
+    "@prisma/client": "^6.19.2",
+    "bcrypt": "^6.0.0",
+    "bullmq": "^5.69.3",
+    "cors": "^2.8.5",
+    "express": "^4.22.1",
+    "express-async-errors": "^3.1.1",
+    "ioredis": "^5.9.3",
+    "jsonwebtoken": "^9.0.3",
+    "node-cron": "^4.2.1",
+    "nodemailer": "^7.0.12",
+    "prisma": "^6.19.2",
+    "zod": "^4.3.5"
+  },
+  "devDependencies": {
+    "@types/bcrypt": "^6.0.0",
+    "@types/cors": "^2.8.19",
+    "@types/express": "^4.17.25",
+    "@types/jsonwebtoken": "^9.0.10",
+    "@types/node": "^25.0.9",
+    "@types/node-cron": "^3.0.11",
+    "@types/nodemailer": "^7.0.5",
+    "dotenv": "^17.2.3",
+    "ts-node-dev": "^2.0.0",
+    "tsconfig-paths": "^4.2.0",
+    "typescript": "^5.9.3"
+  }
+}

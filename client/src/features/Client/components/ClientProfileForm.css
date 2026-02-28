@@ -1,0 +1,32 @@
+/* ClientProfileForm.css */
+@reference "tailwindcss";
+
+.client-form-container {
+  /* Se quita el fondo, ya está en el modal padre */
+  @apply flex flex-col gap-5 w-full max-w-md mx-auto; 
+}
+
+.client-form-input {
+  /* Estilo de Input de Terminal: Borde fino y resaltado teal en focus */
+  @apply border border-gray-300 dark:border-neutral-700/50 
+    bg-white/50 dark:bg-neutral-800/80 text-gray-900 dark:text-gray-100 
+    px-4 py-3 rounded-lg outline-none 
+    focus:ring-2 focus:ring-teal-500 dark:focus:ring-teal-400 
+    focus:border-transparent transition-all;
+}
+
+.client-form-file {
+  /* Estilo de file input (similar al input) */
+  @apply bg-white/50 dark:bg-neutral-800/80 text-gray-900 dark:text-gray-100 
+    px-4 py-3 border border-gray-300 dark:border-neutral-700/50 
+    rounded-lg cursor-pointer w-full;
+}
+
+.client-form-button {
+  /* Botón de Acción: Alto Contraste Neon */
+  @apply bg-teal-500 hover:bg-teal-400 
+    text-white font-bold tracking-widest uppercase 
+    py-3 px-4 rounded-lg transition-colors duration-300 
+    shadow-lg dark:shadow-teal-900/50 
+    disabled:opacity-40 disabled:shadow-none;
+}

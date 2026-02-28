@@ -1,0 +1,380 @@
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "debian-openssl-3.0.x"]
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+////////////////////
+/// AUTH / USER ///
+////////////////////
+
+model User {
+  id         Int      @id @default(autoincrement())
+  email      String   @unique
+  password   String
+  role       Role     @default(CLIENT)
+  isVerified Boolean  @default(false)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  notifications        Notification[]
+  verificationAttempts VerificationAttempt[]
+  passwordResets       PasswordReset[]
+  refreshTokens        RefreshToken[]
+
+  adminProfile        AdminProfile?
+  clientProfile       ClientProfile?
+  professionalProfile ProfessionalProfile?
+  customConfig        CustomConfig?
+
+  @@index([role])
+}
+
+model VerificationAttempt {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  token     String
+  expiresAt DateTime
+  isUsed    Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, token])
+  @@index([userId, expiresAt])
+}
+
+model PasswordReset {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  token     String   @unique
+  expiresAt DateTime
+  isUsed    Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, expiresAt])
+}
+
+model RefreshToken {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  token     String   @unique
+  expiresAt DateTime
+  isRevoked Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, expiresAt])
+}
+
+////////////////////
+/// ADMIN ///
+////////////////////
+
+model AdminProfile {
+  id        Int      @id @default(autoincrement())
+  userId    Int      @unique
+  name      String
+  lastName  String?
+  avatar    String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+////////////////////
+/// CLIENT ///
+////////////////////
+
+model ClientProfile {
+  id        Int      @id @default(autoincrement())
+  userId    Int      @unique
+  name      String
+  lastName  String?
+  phone     String?
+  avatar    String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  appointments Appointment[]
+
+  @@index([phone])
+}
+
+////////////////////////
+/// PROFESSIONAL ///
+////////////////////////
+
+model ProfessionalProfile {
+  id                 Int                @id @default(autoincrement())
+  userId             Int                @unique
+  name               String
+  lastName           String?
+  phone              String?
+  avatar             String?
+  description        String
+  verificationStatus ProfessionalStatus @default(PENDING)
+
+  user         User                    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  specialties  ProfessionalSpecialty[]
+  services     Service[]
+  schedules    Schedule[]
+  certificates Certificate[]
+  socialLinks  SocialLink[]
+  appointments Appointment[]
+
+  @@index([verificationStatus])
+  @@index([name])
+}
+
+model ProfessionalSpecialty {
+  professionalId Int
+  specialtyId    Int
+  status         SpecialtyStatus @default(PENDING)
+  requestedAt    DateTime        @default(now())
+  reviewedAt     DateTime?
+
+  professional ProfessionalProfile @relation(fields: [professionalId], references: [id], onDelete: Cascade)
+  specialty    Specialty           @relation(fields: [specialtyId], references: [id])
+
+  @@id([professionalId, specialtyId])
+  @@index([specialtyId, status])
+}
+
+model Certificate {
+  id         Int                 @id @default(autoincrement())
+  name       String
+  issuedBy   String
+  issuedDate DateTime
+  profileId  Int
+  profile    ProfessionalProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  @@index([profileId])
+}
+
+model SocialLink {
+  id        Int                 @id @default(autoincrement())
+  type      SocialType
+  url       String
+  profileId Int
+  profile   ProfessionalProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  @@unique([profileId, type])
+}
+
+////////////////////
+/// CATALOG ///
+////////////////////
+
+model Specialty {
+  id          Int      @id @default(autoincrement())
+  name        String   @unique
+  description String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  professionalSpecialties ProfessionalSpecialty[]
+  services                Service[]
+
+  @@index([isActive])
+}
+
+model Service {
+  id          Int      @id @default(autoincrement())
+  name        String
+  description String
+  durationMin Int
+  price       Decimal  @db.Decimal(10, 2)
+  isActive    Boolean  @default(true)
+  profileId   Int
+  specialtyId Int
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  profile      ProfessionalProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  specialty    Specialty           @relation(fields: [specialtyId], references: [id])
+  appointments Appointment[]
+
+  @@unique([profileId, name])
+  @@index([profileId, specialtyId])
+  @@index([isActive])
+}
+
+model Schedule {
+  id        Int      @id @default(autoincrement())
+  profileId Int
+  dayOfWeek Int
+  startMin  Int
+  endMin    Int
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  profile ProfessionalProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  @@unique([profileId, dayOfWeek, startMin])
+  @@index([profileId, dayOfWeek])
+  @@index([isActive])
+}
+
+////////////////////
+/// APPOINTMENT ///
+////////////////////
+
+model GuestClient {
+  id        Int      @id @default(autoincrement())
+  name      String
+  email     String?
+  phone     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  appointments Appointment[]
+
+  @@index([email])
+  @@index([phone])
+}
+
+model Appointment {
+  id                    Int               @id @default(autoincrement())
+  clientProfileId       Int?
+  guestId               Int?
+  serviceId             Int
+  professionalProfileId Int
+  date                  DateTime
+  startMin              Int
+  endMin                Int
+  status                AppointmentStatus @default(PENDING)
+  payment               PaymentStatus     @default(PENDING)
+  notes                 String?
+  createdAt             DateTime          @default(now())
+  updatedAt             DateTime          @updatedAt
+
+  clientProfile ClientProfile?      @relation(fields: [clientProfileId], references: [id], onDelete: SetNull)
+  guest         GuestClient?        @relation(fields: [guestId], references: [id], onDelete: SetNull)
+  service       Service             @relation(fields: [serviceId], references: [id])
+  professional  ProfessionalProfile @relation(fields: [professionalProfileId], references: [id])
+  review        Review?
+  notifications Notification[]
+
+  @@unique([professionalProfileId, date, startMin])
+  @@index([professionalProfileId, date])
+  @@index([clientProfileId, status])
+  @@index([serviceId])
+}
+
+model Review {
+  id            Int      @id @default(autoincrement())
+  appointmentId Int      @unique
+  rating        Int
+  comment       String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  appointment Appointment @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
+}
+
+////////////////////
+/// NOTIFICATION ///
+////////////////////
+
+model Notification {
+  id            Int      @id @default(autoincrement())
+  userId        Int
+  appointmentId Int?
+  title         String
+  message       String
+  isRead        Boolean  @default(false)
+  createdAt     DateTime @default(now())
+
+  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  appointment Appointment? @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
+
+  @@index([userId, isRead])
+}
+
+////////////////////
+/// CONFIG ///
+////////////////////
+
+model CustomConfig {
+  id                   Int        @id @default(autoincrement())
+  userId               Int        @unique
+  language             Language   @default(ES)
+  theme                Theme      @default(LIGHT)
+  layout               LayoutType @default(SIDEBAR)
+  preferences          Json?
+  notificationsEnabled Boolean    @default(true)
+  createdAt            DateTime   @default(now())
+  updatedAt            DateTime   @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+////////////////////
+/// ENUMS ///
+////////////////////
+
+enum Role {
+  ADMIN
+  PROFESSIONAL
+  CLIENT
+}
+
+enum ProfessionalStatus {
+  PENDING
+  APPROVED
+  SUSPENDED
+  REJECTED
+}
+
+enum SpecialtyStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum AppointmentStatus {
+  PENDING
+  CONFIRMED
+  CANCELLED
+  COMPLETED
+}
+
+enum PaymentStatus {
+  PENDING
+  CONFIRMED
+  FAILED
+}
+
+enum LayoutType {
+  SIDEBAR
+  TOPBAR
+}
+
+enum Language {
+  ES
+  EN
+}
+
+enum Theme {
+  LIGHT
+  DARK
+}
+
+enum SocialType {
+  FACEBOOK
+  INSTAGRAM
+  LINKEDIN
+  WEBSITE
+}

@@ -1,0 +1,54 @@
+/* src/styles/components/userMenu.css */
+@reference "tailwindcss";
+
+/* BOTÓN */
+.user-menu-button {
+  @apply flex items-center gap-2 p-2 rounded-full
+    bg-white/20 dark:bg-neutral-800/30
+    backdrop-blur-md
+    border border-white/30 dark:border-white/10
+    shadow-sm
+    hover:bg-white/30 dark:hover:bg-neutral-700/40
+    transition;
+}
+
+.user-avatar {
+  @apply w-8 h-8 rounded-full object-cover
+    border border-white/40 dark:border-white/20;
+}
+
+.user-name {
+  @apply text-sm font-medium;
+}
+
+/* MENU – SIDEBAR */
+.user-menu-items-sidebar {
+  @apply fixed left-4 bottom-16 z-[9999] w-44 p-1
+    bg-teal-100/30 dark:bg-neutral-800/40
+    backdrop-blur-lg
+    border border-white/30 dark:border-white/10
+    rounded-xl
+    shadow-xl
+    focus:outline-none;
+}
+
+/* MENU – TOPBAR */
+.user-menu-items-topbar {
+  @apply fixed right-4 top-16 z-[9999] w-44 p-1
+    bg-teal-100/30 dark:bg-neutral-800/40
+    backdrop-blur-lg
+    border border-white/30 dark:border-white/10
+    rounded-xl
+    shadow-xl
+    focus:outline-none;
+}
+
+/* ITEMS */
+.user-menu-item {
+  @apply flex w-full items-center rounded-md px-3 py-2 text-sm
+    text-neutral-800 dark:text-neutral-100;
+}
+
+.user-menu-item-active {
+  @apply bg-teal-200/30 dark:bg-gray-600/30;
+}

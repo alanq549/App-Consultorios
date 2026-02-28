@@ -1,0 +1,74 @@
+@reference "tailwindcss";
+
+/* Contenedor principal */
+.layout-container {
+  @apply relative flex min-h-screen bg-white text-black dark:bg-neutral-950 dark:text-gray-100;
+}
+
+/* Layout Topbar */
+.topbar-layout {
+  @apply flex flex-col w-full h-full;
+}
+
+.topbar-wrapper {
+  @apply flex justify-center w-full mt-4 p-4 md:p-6;
+}
+
+/* Layout Sidebar */
+.sidebar-layout {
+  @apply flex w-full;
+}
+
+.sidebar-wrapper {
+  @apply flex-1 p-8 md:p-12;
+}
+
+/* Panel flotante tipo glassmorphism */
+.content_wrapper {
+  @apply w-full max-w-full flex-1 overflow-hidden
+       
+         dark:bg-zinc-950/10
+         backdrop-blur-sm transition-opacity ;
+}
+
+.main_content-area {
+  @apply w-full flex-1 p-6 md:p-8;
+}
+
+/* Z-index layouts para que floten sobre el fondo */
+.topbar-layout,
+.sidebar-layout {
+  @apply relative z-10;
+}
+
+/* Media Query */
+@media (max-width: 640px) {
+  .topbar-wrapper {
+    @apply p-2;
+  }
+  .sidebar-wrapper {
+    @apply p-4;
+  }
+  .content_wrapper {
+    @apply rounded-xl;
+  }
+  .main_content-area {
+    @apply p-4;
+  }
+}
+
+/* Fondo médico base: En Light mode es transparente (blanco total por el contenedor padre) */
+.medical-gradient-bg {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background: transparent; /* Forzamos que sea transparente en Light */
+}
+
+/* Variante dark: Aquí es donde definimos los degradados */
+.dark .medical-gradient-bg {
+  background:
+    radial-gradient(circle at 20% 20%, rgba(20,184,166,0.12), transparent 45%),
+    radial-gradient(circle at 80% 80%, rgba(59,130,246,0.12), transparent 45%);
+}

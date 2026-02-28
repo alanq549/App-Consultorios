@@ -1,0 +1,35 @@
+@layer components {
+  .sidebar {
+    @apply 
+      w-64 min-h-screen p-6
+      /* Fondo base sutilmente translúcido */
+      bg-gray-50 dark:bg-neutral-900/50 
+      backdrop-blur-xl border-r border-white/10;
+  }
+
+  .navlink {
+    @apply 
+      relative flex items-center px-4 py-3 rounded-xl transition-all duration-300
+      text-gray-600 dark:text-neutral-400
+      /* Efecto hover Glass */
+      hover:bg-white/40 dark:hover:bg-white/5 
+      hover:text-gray-900 dark:hover:text-white
+      border border-transparent hover:border-white/20;
+  }
+
+  .navlink-active {
+    @apply 
+      font-bold
+      /* Estilo activo con Glassmorphism marcado */
+      bg-indigo-500/10 text-indigo-600 dark:text-indigo-400
+      border-white/20 dark:border-white/10
+      shadow-[0_8px_32px_0_rgba(99,102,241,0.1)];
+  }
+  
+  /* Indicador lateral para el item activo */
+  .navlink-active::before {
+    content: "";
+    @apply absolute left-0 w-1 h-1/2 bg-indigo-500 rounded-r-full;
+  }
+}
+

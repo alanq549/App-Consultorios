@@ -1,0 +1,95 @@
+@reference "tailwindcss";
+
+/* ------------------------------ */
+/* CARD BASE */
+/* ------------------------------ */
+.profile-card-container {
+  @apply flex flex-col gap-6 p-6
+    bg-white/70 dark:bg-neutral-800/30
+    backdrop-blur-md border border-neutral-200/60 dark:border-white/10
+    rounded-2xl shadow-md;
+}
+
+/* ------------------------------ */
+/* HEADER */
+/* ------------------------------ */
+.profile-card-header {
+  @apply flex flex-col items-center text-center gap-4;
+}
+
+.profile-avatar-wrapper {
+  @apply relative;
+}
+
+.profile-avatar {
+  @apply w-32 h-32 rounded-full object-cover
+    border-2 border-white/70 dark:border-teal-500/70;
+}
+
+.profile-avatar-fallback {
+  @apply w-32 h-32 rounded-full
+    bg-neutral-700 dark:bg-neutral-900
+    flex items-center justify-center
+    text-4xl font-bold text-teal-400;
+}
+
+.profile-avatar-edit {
+  @apply absolute bottom-1 right-1
+    w-9 h-9 rounded-full
+    bg-neutral-900/60 text-white
+    flex items-center justify-center
+    backdrop-blur-md border border-white/20
+    hover:bg-teal-600 transition;
+}
+
+/* ------------------------------ */
+/* NOMBRE + VERIFICACIÓN */
+/* ------------------------------ */
+.profile-header-info {
+  @apply flex flex-col items-center gap-1;
+}
+
+.profile-name {
+  @apply text-xl font-semibold text-neutral-900 dark:text-neutral-100;
+}
+
+.verification-badge {
+  @apply text-xs flex items-center gap-1
+    px-2 py-0.5 rounded-full border;
+}
+
+.verification-badge.verified {
+  @apply bg-teal-900/20 text-teal-400 border-teal-700/40;
+}
+
+.verification-badge.unverified {
+  @apply bg-red-900/20 text-red-300 border-red-700/40;
+}
+
+/* ------------------------------ */
+/* CONTACTO */
+/* ------------------------------ */
+.profile-contact-section {
+  @apply border-t border-neutral-200/60 dark:border-white/10 pt-4;
+}
+
+.contact-details-list {
+  @apply space-y-3;
+}
+
+.detail-item {
+  @apply flex items-center gap-3 text-sm
+    text-neutral-700 dark:text-neutral-300;
+}
+
+.detail-icon {
+  @apply text-teal-500;
+}
+
+.detail-value {
+  @apply hover:text-teal-500 transition-colors break-all;
+}
+
+.detail-value.muted {
+  @apply text-neutral-400 italic;
+}

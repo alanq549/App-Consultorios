@@ -1,0 +1,107 @@
+/* src/styles/features/client/components/topbarClient.css */
+@reference "tailwindcss";
+
+/* 1. HEADER (Contenedor Principal: Glassmorphism) */
+.client_topbar-header {
+    /* Sombra Flotante Teal en Dark */
+    @apply shadow-xl shadow-gray-200/50 dark:shadow-teal-900/20 dark:border dark:border-teal-700;
+
+
+    /* Estilo Base */
+    @apply sticky top-0 z-50 w-full h-16 
+        flex items-center justify-between px-5 rounded-3xl overflow-visible
+        transition-all duration-300; 
+
+    /* Light Mode */
+    @apply bg-teal-100/40 text-slate-900;
+
+    /* Dark Mode: Traslúcido, Neutro, con Blur */
+    @apply dark:bg-neutral-900/40 dark:text-white 
+        backdrop-blur-lg dark:border-b dark:border-teal-300/25;
+}
+
+/* 2. TÍTULO */
+.client_topbar-title {
+    /* Título simple y en negrita */
+    @apply text-xl font-bold;
+}
+
+/* 3. NAVEGACIÓN (Ajuste para Iconos) */
+.client_topbar-nav {
+    /* ... (resto de las clases se mantienen) */
+    @apply flex items-center justify-center space-x-4 text-sm 
+        border border-teal-400 dark:border-teal-700 p-2 rounded-full
+        bg-white/50 dark:bg-neutral-800/60; 
+}
+
+/* Enlaces */
+.client_topbar-link {
+    /* Habilitamos flex para alinear ícono y texto */
+    @apply flex items-center gap-2 px-4 py-2 rounded-full transition-colors duration-200 
+        hover:bg-teal-200 dark:hover:bg-neutral-700 
+        text-neutral-800 dark:text-gray-100;
+}
+
+.client_topbar-link .link-icon {
+    /* Tamaño del icono */
+    @apply text-lg;
+}
+.client_topbar-link .link-label {
+    /* Aseguramos que el texto esté visible */
+    @apply hidden md:block; /* Ocultamos el texto en móvil para ahorrar espacio (UX Móvil) */
+}
+
+/* Media Query: Mejor espaciado en móviles */
+@media (max-width: 640px) {
+    /* ... (resto de las clases de header, title, right se mantienen) ... */
+
+    .client_topbar-nav {
+        /* Aumentamos el tamaño para que quepan los íconos */
+        @apply space-x-1 p-1 overflow-x-auto w-auto; 
+    }
+    .client_topbar-link {
+        /* En móvil, solo mostramos el ícono con un padding más compacto */
+        @apply px-3 py-1 text-sm; 
+    }
+    .client_topbar-link .link-label {
+        @apply hidden; /* Aseguramos que solo se vean los iconos */
+    }
+    .client_topbar-link .link-icon {
+        @apply text-base; /* Reducimos el tamaño del ícono ligeramente */
+    }
+}
+
+/* 4. LINKS */
+
+
+/* 5. DERECHA Y NOTIFICACIONES */
+.client_topbar-right {
+    @apply flex items-center gap-4;
+}
+
+.client_notification-button {
+    @apply bg-transparent border-0 cursor-pointer text-inherit p-0 flex items-center;
+}
+
+.client_notification-button:hover {
+    @apply text-teal-600 dark:text-teal-400; /* Teal para el hover */
+}
+
+/* Media Query: Mejor espaciado en móviles */
+@media (max-width: 640px) {
+    .client_topbar-header {
+        @apply h-11 px-2 rounded-xl; /* Bordes más pequeños en móvil */
+    }
+    .client_topbar-title {
+        @apply text-sm; /* Título más pequeño */
+    }
+    .client_topbar-nav {
+        @apply space-x-2 p-1 text-[15px] overflow-x-auto w-40 h-7;
+    }
+    .client_topbar-link {
+        @apply px-2 py-1 text-xs whitespace-nowrap; /* Ajustamos padding y texto */
+    }
+    .client_topbar-right {
+        @apply gap-2;
+    }
+}

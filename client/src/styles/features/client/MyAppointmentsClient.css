@@ -1,0 +1,32 @@
+
+@reference "tailwindcss";
+.appointments-container {
+  @apply max-w-7xl mx-auto p-4 md:p-6;
+}
+
+.appointments-title {
+  @apply text-2xl font-bold text-gray-800 dark:text-gray-200 mb-6 pb-2 border-b border-gray-200 dark:border-gray-700;
+}
+
+.appointments-list {
+  @apply space-y-4;
+}
+
+.loading-message,
+.error-message,
+.empty-message {
+  @apply p-6 text-center rounded-lg max-w-4xl mx-auto;
+}
+
+.loading-message {
+  @apply bg-blue-50 text-blue-800 dark:bg-blue-900 dark:text-blue-200;
+}
+
+.error-message {
+  @apply bg-red-50 text-red-800 dark:bg-red-900 dark:text-red-200;
+}
+
+.empty-message {
+  @apply bg-gray-50 text-gray-800 dark:bg-gray-700 dark:text-gray-300;
+}
+

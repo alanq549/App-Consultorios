@@ -1,0 +1,75 @@
+/* src/styles/features/professional/components/topbarProfessional.css */
+@reference "tailwindcss";
+
+.topbar-header {
+  @apply sticky top-0 z-50 w-full h-16 bg-[#DBFCF5] text-slate-900 dark:bg-zinc-900 dark:text-white flex items-center justify-between px-5 rounded-full shadow-xl;
+}
+.dark .topbar-header {
+  @apply shadow-zinc-500/40 shadow-lg;
+}
+
+.topbar-title {
+  @apply text-lg font-semibold dark:bg-neutral-700 p-2 rounded-full;
+}
+
+.topbar-nav {
+  @apply flex items-center justify-center space-x-4 text-sm border border-teal-400 dark:border-neutral-700 p-2 rounded-full;
+}
+
+.menu-button {
+  @apply md:hidden p-2 rounded-md cursor-pointer bg-teal-200 dark:bg-neutral-700;
+}
+
+
+.topbar-link {
+  @apply px-4 py-2 rounded-full transition-colors duration-200  inline-flex items-center justify-center  hover:bg-teal-200 dark:hover:bg-neutral-600 text-black dark:text-white;
+}
+
+.topbar-link.active {
+  @apply font-semibold  bg-teal-300/80 dark:bg-neutral-700 text-black dark:text-white;
+
+}
+
+.topbar-right {
+  @apply flex items-center gap-4;
+}
+
+.notification-button {
+  @apply bg-transparent border-0 cursor-pointer text-inherit p-0 flex items-center;
+}
+
+.notification-button:hover .bell-icon {
+  stroke: #2563eb; /* azul al hover (no hay @apply para stroke en Tailwind) */
+}
+
+.bell-icon {
+  @apply w-6 h-6 stroke-current;
+}
+
+
+@media (max-width: 640px) {
+
+    .topbar-header {
+    @apply h-11 px-2 ;
+
+  }
+    .topbar-title {
+    @apply text-xs p-1;
+  }
+
+  .topbar-nav {
+    @apply space-x-2 p-1 text-[15px] overflow-x-auto w-40 h-7;
+
+  }
+    .topbar-link {
+    @apply px-1 py-1 text-[8px] text-nowrap;
+  }
+
+  .topbar-right {
+    @apply gap-1;
+  }
+
+    .bell-icon {
+    @apply w-4 h-4;
+  }
+}

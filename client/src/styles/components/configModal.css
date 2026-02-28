@@ -1,0 +1,75 @@
+@reference "tailwindcss";
+
+.modal-overlay {
+  @apply fixed inset-0 bg-black/50 dark:bg-black/70 flex items-center justify-center z-50 backdrop-blur-sm transition-opacity duration-300 ;
+}
+
+.modal-container {
+  @apply bg-white dark:bg-neutral-800 rounded-xl shadow-xl w-[95%] max-w-md overflow-hidden transform transition-all duration-300 scale-95 opacity-0;
+  @apply sm:w-[90%] md:max-w-lg;
+}
+
+.modal-overlay[data-state="open"],
+.modal-container[data-state="open"] {
+  @apply scale-100 opacity-100;
+}
+
+.modal-header {
+  @apply flex items-center justify-between p-6 pb-4 border-b border-gray-200 dark:border-neutral-700;
+}
+
+.modal-title {
+  @apply text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2;
+}
+
+.modal-icon {
+  @apply text-2xl;
+}
+
+.modal-close-button {
+  @apply text-2xl text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 bg-transparent p-1 rounded-full transition-colors;
+  @apply focus:outline-none focus:ring-2 focus:ring-transparent focus:ring-offset-2 dark:focus:ring-offset-neutral-800;
+}
+
+.modal-content {
+  @apply p-6 space-y-6;
+}
+
+.modal-field-group {
+  @apply space-y-2;
+}
+
+.modal-label {
+  @apply block text-sm font-medium text-gray-700 dark:text-gray-300  items-center gap-2;
+}
+
+.modal-label-icon {
+  @apply text-lg;
+}
+
+.modal-select {
+  @apply w-full px-4 py-2 border border-gray-300 dark:border-neutral-700 rounded-lg bg-white dark:bg-neutral-700 text-gray-900 dark:text-white;
+  @apply focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:outline-none transition-colors;
+}
+
+.modal-hint {
+  @apply text-xs text-gray-500 dark:text-gray-400;
+}
+
+.modal-footer {
+  @apply flex justify-end gap-3 px-6 py-4 bg-gray-50 dark:bg-neutral-700/50 border-t border-gray-200 dark:border-neutral-700;
+}
+
+.modal-button {
+  @apply px-5 py-2.5 rounded-lg font-medium transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2;
+  @apply dark:focus:ring-offset-neutral-800;
+}
+
+.modal-button-cancel {
+  @apply text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-neutral-700 hover:bg-gray-200 dark:hover:bg-neutral-600;
+  @apply focus:ring-gray-500;
+}
+
+.modal-button-save {
+  @apply text-white bg-blue-600 hover:bg-blue-700 focus:ring-blue-500;
+}

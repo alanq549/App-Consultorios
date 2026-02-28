@@ -1,0 +1,7 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body:has([data-open]) {
+  overflow: hidden;
+}
