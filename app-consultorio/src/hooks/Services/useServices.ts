@@ -1,12 +1,13 @@
-// src/hooks/services/useServices.ts
+// hooks/Services/useServices.ts
 
 import { useQuery } from "@tanstack/react-query";
 import { getServicesByProfessional } from "@/api/service.api";
+import type { Service } from "@/types/service.type";
 
-export const useServices = (profileId: number) => {
-  return useQuery({
-    queryKey: ["services", profileId],
-    queryFn: () => getServicesByProfessional(profileId),
-    enabled: !!profileId,
+export const useServices = (professionalId: number) => {
+  return useQuery<Service[], Error>({
+    queryKey: ["services", professionalId],
+    queryFn: () => getServicesByProfessional(professionalId),
+    enabled: !!professionalId,
   });
 };

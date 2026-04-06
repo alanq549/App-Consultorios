@@ -10,8 +10,7 @@ export interface Service {
 
   specialty: Specialty;
 
-  professionalProfileId: number;
-
+profileId: number;
   createdAt: string;
   updatedAt: string;
 }

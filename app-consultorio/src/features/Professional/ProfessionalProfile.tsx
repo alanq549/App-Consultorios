@@ -72,7 +72,7 @@ export function ProfessionalProfile({ professional }: Props) {
     ? `${staticbackend}${professional.avatar}`
     : "/imgs/image.png";
 
-    return (
+  return (
     <div
       className="
         flex flex-col items-center
@@ -228,6 +228,7 @@ export function ProfessionalProfile({ professional }: Props) {
                 );
               })}
             </div>
+            
           </div>
         )}
 

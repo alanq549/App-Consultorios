@@ -63,3 +63,11 @@ export type AppointmentResponseDTO = {
     phone?: string | null;
   } | null;
 };
+
+export interface BookingSelection {
+  professionalId: number
+  serviceId: number
+  date: string
+  startMin: number
+  endMin: number
+}

@@ -11,7 +11,7 @@ import {ForgotPasswordPage} from "@/features/auth/pages/ForgotPassword";
 import ClientDashboard from "@/features/Client/pages/ClientDashboard";
 import ClientProfile from "@/features/Client/pages/profile";
 import ClientAppointments from "@/features/Client/pages/appointments";
-import BookingPage from "@/features/Client/components/booking/pages/BookingPage";
+import ClientBookingPage from "@/features/appointment/pages/ClientBookingPage";
 
 // Professional
 import ProfessionalDashboard from "@/features/Professional/pages/ProfessionalDashboard";
@@ -54,7 +54,7 @@ export default function AppRouter() {
                 path="/client/appointments"
                 element={<ClientAppointments />}
               />
-              <Route path="/client/booking" element={<BookingPage />} />
+              <Route path="/client/booking" element={<ClientBookingPage />} />
             </Route>
           </Route>
 

@@ -44,3 +44,14 @@ export type Professional = {
   socialLinks?: socialLinks[];
   certificates?: Certificate[];
 };
+
+/// type para mostrar en el booking, con menos info que el professional completo
+export type BookingProfessional = Pick<
+  Professional,
+  "id" | "name" | "lastName" | "avatar" | "ratingAvg" | "ratingCount"
+> & {
+  specialty?: {
+    id: number;
+    name: string;
+  } | null;
+};

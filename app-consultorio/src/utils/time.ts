@@ -28,3 +28,35 @@ export function generateTimeSlots(step = 15) {
 
   return slots;
 }
+
+export function getNextDateForDay(dayOfWeek: number) {
+  const today = new Date()
+  const result = new Date(today)
+
+  const diff =
+    (dayOfWeek + 7 - today.getDay()) % 7
+
+  result.setDate(today.getDate() + diff)
+
+  return result
+}
+
+export function generateNextDays(count = 7) {
+  const days = []
+
+  for (let i = 0; i < count; i++) {
+    const d = new Date()
+    d.setDate(d.getDate() + i)
+
+    days.push({
+      date: d.toISOString().split("T")[0],
+      label: d.toLocaleDateString("es-MX", {
+        weekday: "long",
+        day: "numeric",
+        month: "short"
+      })
+    })
+  }
+
+  return days
+}
