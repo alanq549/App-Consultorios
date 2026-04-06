@@ -24,7 +24,7 @@ COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/node_modules ./node_modules
 
 # Copiar Prisma generado al mismo path relativo dentro de dist
-COPY --from=builder /app/src/core/lib/prisma/generated ./dist/core/lib/prisma/generated
+#COPY --from=builder /app/src/core/lib/prisma/generated ./dist/core/lib/prisma/generated
 
 ENV NODE_ENV=production
 EXPOSE 3000
