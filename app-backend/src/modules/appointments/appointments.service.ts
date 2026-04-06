@@ -526,6 +526,7 @@ export class AppointmentService {
               id: appointment.clientProfile.id,
               name: appointment.clientProfile.name,
               lastName: appointment.clientProfile.lastName,
+              avatar: appointment.clientProfile.avatar,
               user: {
                 id: appointment.clientProfile.user.id,
                 email: appointment.clientProfile.user.email,

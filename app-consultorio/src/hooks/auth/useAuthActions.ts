@@ -2,10 +2,7 @@
 import { useAppDispatch } from "@/hooks/auth/useRedux";
 import { setCredentials, setMe, logout } from "@/store/auth/authSlice";
 import api from "@/api/axios";
-import type {
-  LoginResponse,
-  RegisterRequest,
-} from "@/types/auth.types";
+import type { LoginResponse, RegisterRequest } from "@/types/auth.types";
 import { usersApi } from "@/api/users.api";
 import { setConfig } from "@/store/config/configSlice";
 import type { AuthUser } from "@/types/auth.types";
@@ -15,39 +12,34 @@ export const useAuthActions = () => {
 
   /* ===== LOGIN ===== */
 
-const login = async (
-  email: string,
-  password: string
-): Promise<AuthUser> => {
-  const { data } = await api.post<LoginResponse>("/auth/login", {
-    email,
-    password,
-  });
+  const login = async (email: string, password: string): Promise<AuthUser> => {
+    const { data } = await api.post<LoginResponse>("/auth/login", {
+      email,
+      password,
+    });
 
-  // 1️⃣ login básico
-  dispatch(setCredentials(data));
+    // 1️⃣ login básico
+    dispatch(setCredentials(data));
 
-  // 2️⃣ completar user (perfil + config)
-  const me = await usersApi.me();
-  dispatch(setMe(me));
+    // 2️⃣ completar user (perfil + config)
+    const me = await usersApi.me();
+    dispatch(setMe(me));
 
-  if (me.config) {
-    dispatch(setConfig(me.config));
-  }
+    if (me.config) {
+      dispatch(setConfig(me.config));
+    }
 
-  // 3️⃣ devolver el user FINAL
-  return {
-    ...data.user,
-    ...me,
-  } as AuthUser;
-};
-
+    // 3️⃣ devolver el user FINAL
+    return {
+      ...data.user,
+      ...me,
+    } as AuthUser;
+  };
 
   /* ===== REGISTER ===== */
   const register = async (payload: RegisterRequest) => {
     await api.post("/auth/register", payload);
-    // ⛔ no logueamos automáticamente
-    // normalmente se verifica email primero
+    // el redirecionameinto ya esta en los componentes, no es necesario hacer nada mas aqui
   };
 
   /* ===== LOGOUT ===== */
@@ -55,5 +47,17 @@ const login = async (
     dispatch(logout());
   };
 
-  return { login, register, logoutUser };
+  //* ===== FORGOT & RESET PASSWORD ===== */
+  const forgotPassword = async (email: string) => {
+    await api.post("/auth/forgot-password", { email });
+  };
+
+  const resetPassword = async (token: string, newPassword: string) => {
+    await api.post("/auth/reset-password", {
+      token,
+      newPassword,
+    });
+  };
+
+  return { login, register, logoutUser, forgotPassword, resetPassword };
 };

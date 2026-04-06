@@ -1,91 +1,110 @@
 // notifications.service.ts
+
 import prisma from "@/core/prisma";
-import { NotificationType } from "./notifications.types";
+import { NotificationType } from "@prisma/client";
 
 export class NotificationService {
-  // Crear notificación genérica
+
   static async createNotification(
     userId: number,
+    type: NotificationType,
     title: string,
     message: string,
-    appointmentId?: number,
+    appointmentId?: number
   ) {
     return prisma.notification.create({
-      data: { userId, title, message, appointmentId, isRead: false },
+      data: {
+        userId,
+        type,
+        title,
+        message,
+        appointmentId,
+        isRead: false,
+      },
     });
   }
 
-  // Notificaciones de bienvenida al registrarse
+  // Bienvenida
   static async notifyWelcome(userId: number) {
     return this.createNotification(
       userId,
+      NotificationType.WELCOME,
       "Bienvenido!",
-      "Gracias por unirte a nuestra plataforma",
-      undefined,
+      "Gracias por unirte a nuestra plataforma"
     );
   }
 
-  // notificación para nueva cita (tanto para cliente como profesional)
+  // Nueva cita
   static async notifyAppointmentCreated(
     clientId: number,
     professionalId: number,
-    appointmentId: number,
+    appointmentId: number
   ) {
     await this.createNotification(
       clientId,
+      NotificationType.APPOINTMENT_CREATED,
       "Cita creada",
       "Tu cita ha sido registrada",
-      appointmentId,
+      appointmentId
     );
+
     await this.createNotification(
       professionalId,
+      NotificationType.APPOINTMENT_CREATED,
       "Nueva cita",
       "Tienes una nueva cita agendada",
-      appointmentId,
+      appointmentId
     );
   }
 
-  // notificación para cambios de estado de la cita (ej: confirmada, cancelada)
+  // Cambio de estado
   static async notifyAppointmentStatus(
     userId: number,
     appointmentId: number,
-    status: string,
+    status: string
   ) {
     return this.createNotification(
       userId,
+      NotificationType.APPOINTMENT_STATUS_CHANGED,
       "Estado de cita actualizado",
       `Tu cita ahora está ${status}`,
-      appointmentId,
+      appointmentId
     );
   }
 
-  // Notificación para solicitar review después de la cita
-  static async notifyReviewRequest(clientId: number, appointmentId: number) {
+  // Review
+  static async notifyReviewRequest(
+    clientId: number,
+    appointmentId: number
+  ) {
     return this.createNotification(
       clientId,
+      NotificationType.REVIEW_REQUEST,
       "Deja tu review",
       "Tu cita terminó, cuéntanos cómo fue",
-      appointmentId,
+      appointmentId
     );
   }
 
   static async notifyAppointmentConfirmed(
     clientUserId: number,
     professionalUserId: number,
-    appointmentId: number,
+    appointmentId: number
   ) {
     await this.createNotification(
       clientUserId,
+      NotificationType.APPOINTMENT_CONFIRMED,
       "Cita confirmada",
       "Tu cita ha sido confirmada por el profesional",
-      appointmentId,
+      appointmentId
     );
 
     await this.createNotification(
       professionalUserId,
+      NotificationType.APPOINTMENT_CONFIRMED,
       "Cita confirmada",
       "Has confirmado la cita exitosamente",
-      appointmentId,
+      appointmentId
     );
   }
 
@@ -93,7 +112,7 @@ export class NotificationService {
     clientUserId: number,
     professionalUserId: number,
     appointmentId: number,
-    cancelledBy: "SYSTEM" | "PROFESSIONAL",
+    cancelledBy: "SYSTEM" | "PROFESSIONAL"
   ) {
     const reason =
       cancelledBy === "SYSTEM"
@@ -102,40 +121,44 @@ export class NotificationService {
 
     await this.createNotification(
       clientUserId,
+      NotificationType.APPOINTMENT_CANCELLED,
       "Cita cancelada",
       reason,
-      appointmentId,
+      appointmentId
     );
 
     await this.createNotification(
       professionalUserId,
+      NotificationType.APPOINTMENT_CANCELLED,
       "Cita cancelada",
       "La cita fue cancelada correctamente",
-      appointmentId,
+      appointmentId
     );
   }
 
   static async notifyAppointmentCompleted(
     clientUserId: number,
     professionalUserId: number,
-    appointmentId: number,
+    appointmentId: number
   ) {
     await this.createNotification(
       clientUserId,
+      NotificationType.APPOINTMENT_COMPLETED,
       "Cita completada",
       "Tu cita ha finalizado. Déjanos tu opinión.",
-      appointmentId,
+      appointmentId
     );
 
     await this.createNotification(
       professionalUserId,
-      "Cita completada",
+      NotificationType.APPOINTMENT_COMPLETED,
       "La cita fue marcada como completada",
-      appointmentId,
+      "La cita fue marcada como completada",
+      appointmentId
     );
   }
 
-  // Consultar todas las notificaciones de un usuario
+  // Obtener notificaciones
   static async getUserNotifications(userId: number) {
     return prisma.notification.findMany({
       where: { userId },
@@ -143,7 +166,6 @@ export class NotificationService {
     });
   }
 
-  // Marcar notificación como leída
   static async markAsRead(notificationId: number) {
     return prisma.notification.update({
       where: { id: notificationId },
@@ -151,7 +173,6 @@ export class NotificationService {
     });
   }
 
-  // Marcar todas como leídas
   static async markAllAsRead(userId: number) {
     return prisma.notification.updateMany({
       where: { userId, isRead: false },

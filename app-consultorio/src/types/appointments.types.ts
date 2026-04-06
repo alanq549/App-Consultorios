@@ -1,4 +1,10 @@
 // src/types/appointments.types.ts
+export type AppointmentStatus =
+  | "PENDING"
+  | "CONFIRMED"
+  | "COMPLETED"
+  | "CANCELLED";
+
 export type CreateAppointmentDTO = {
   professionalProfileId: number;
   serviceId: number;
@@ -24,7 +30,7 @@ export type AppointmentResponseDTO = {
   startMin: number;
   endMin: number;
   notes?: string | null;
-  status: string;
+  status: AppointmentStatus;
   service: {
     id: number;
     name: string;
@@ -43,8 +49,17 @@ export type AppointmentResponseDTO = {
   };
   client?: {
     id: number;
+    avatar?: string | null;
     name: string;
     lastName?: string | null;
     user: { id: number; email: string };
+  } | null;
+
+  guest?: {
+    id: number;
+    avatar?: string | null;
+    name: string;
+    email?: string | null;
+    phone?: string | null;
   } | null;
 };

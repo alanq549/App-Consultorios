@@ -13,4 +13,5 @@ router.get("/upcoming", authMiddleware, AppointmentsController.upcoming);
 router.patch("/:id/status", authMiddleware, authorizeRole("PROFESSIONAL"), AppointmentsController.updateStatus,);
 router.post("/create-guest", AppointmentsController.createGuest);
 router.get("/availability", AppointmentsController.availability);
+
 export default router;

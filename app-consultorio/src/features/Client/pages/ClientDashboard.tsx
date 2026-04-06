@@ -14,7 +14,6 @@ export default function ClientDashboard() {
   const auth = useAppSelector((s) => s.auth)
 
 useEffect(() => {
-  console.log("🧠 AUTH STORE:", auth)
 }, [auth])
 
 

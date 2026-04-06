@@ -3,6 +3,7 @@ import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAppSelector } from "./useRedux";
 
+
 export const useAuthRedirect = () => {
   const navigate = useNavigate();
   const { status, user } = useAppSelector((s) => s.auth);

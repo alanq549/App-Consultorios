@@ -1,8 +1,12 @@
 // layouts/components/Sidebar.tsx
 import { NavLink } from "react-router-dom";
-import { 
-  LayoutDashboard, Calendar, User, 
-  PlusCircle, Users, Settings 
+import {
+  LayoutDashboard,
+  Calendar,
+  User,
+  PlusCircle,
+  Users,
+  Settings,
 } from "lucide-react";
 
 interface SidebarProps {
@@ -13,12 +17,18 @@ export const Sidebar = ({ role }: SidebarProps) => {
   const menuItems = {
     CLIENT: [
       { label: "Dashboard", path: "/client/dashboard", icon: LayoutDashboard },
+      { label: "Reservar Cita", path: "/client/booking", icon: PlusCircle },
       { label: "Citas", path: "/client/appointments", icon: Calendar },
       { label: "Perfil", path: "/client/profile", icon: User },
-      { label: "Reservar Cita", path: "/client/booking", icon: PlusCircle },
     ],
     PROFESSIONAL: [
-      { label: "Dashboard", path: "/professional/dashboard", icon: LayoutDashboard },
+      {
+        label: "Dashboard",
+        path: "/professional/dashboard",
+        icon: LayoutDashboard,
+      },
+      { label: "Servicios", path: "/professional/Services", icon: Users },
+      { label: "Horarios", path: "/professional/schedules", icon: Calendar },
       { label: "Pacientes", path: "/professional/patients", icon: Users },
       { label: "Perfil", path: "/professional/profile", icon: User },
     ],

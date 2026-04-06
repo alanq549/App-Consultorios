@@ -16,7 +16,6 @@ export default function ProfessionalDashboard() {
   const auth = useAppSelector((s) => s.auth)
 
   useEffect(() => {
-    console.log("🧠 AUTH STORE (PROFESSIONAL):", auth)
   }, [auth])
 
   if (!user || !user.profile || !user.config) {

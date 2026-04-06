@@ -3,6 +3,8 @@ import { NavLink } from "react-router-dom";
 import { useAppSelector } from "@/hooks/auth/useRedux";
 import { UserMenu } from "./UserMenu";
 import { LayoutDashboard, Calendar, User, PlusCircle, Users, Settings } from "lucide-react";
+import { NotificationBell } from "@/features/notifications/components/NotificationBell";
+
 
 interface TopbarProps {
   isStandalone?: boolean;
@@ -11,12 +13,14 @@ interface TopbarProps {
 const menuItems = {
   CLIENT: [
     { label: "Dashboard", path: "/client/dashboard", icon: LayoutDashboard },
+        { label: "Reservar Cita", path: "/client/booking", icon: PlusCircle },
     { label: "Citas", path: "/client/appointments", icon: Calendar },
     { label: "Perfil", path: "/client/profile", icon: User },
-    { label: "Reservar Cita", path: "/client/booking", icon: PlusCircle },
   ],
   PROFESSIONAL: [
     { label: "Dashboard", path: "/professional/dashboard", icon: LayoutDashboard },
+    { label: "Servicios", path: "/professional/Services", icon: Users },
+    { label: "Horarios", path: "/professional/schedules", icon: Calendar },
     { label: "Pacientes", path: "/professional/patients", icon: Users },
     { label: "Perfil", path: "/professional/profile", icon: User },
   ],
@@ -80,7 +84,9 @@ export const Topbar = ({ isStandalone = false }: TopbarProps) => {
           )}
         </div>
 
+
         <div className="h-8 w-[1px] bg-gray-200 dark:bg-white/10 hidden md:block mx-1" />
+  <NotificationBell />
 
         <UserMenu />
       </div>

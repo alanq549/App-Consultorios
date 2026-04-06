@@ -1,5 +1,7 @@
 // src/types/auth.types.ts
 
+import type { socialLinks  } from "./professional.type";
+
 /* ===== ROLES ===== */
 export type Role = "CLIENT" | "PROFESSIONAL" | "ADMIN";
 
@@ -31,9 +33,18 @@ export interface Specialty {
   description: string;
 }
 
+// agregue lo de certificados y socialLinks
 export interface ProfessionalProfile extends BaseProfile {
   description?: string;
-  specialty: Specialty;
+ specialties: Specialty[];
+   socialLinks : socialLinks [];
+  certificates: {
+    id: number;
+    name: string;
+    issuedBy: string;
+    issuedDate: string;
+    fileUrl: string;
+  }[];
 }
 
 /* ADMIN */

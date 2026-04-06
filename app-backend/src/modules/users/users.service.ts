@@ -1,96 +1,164 @@
 // src/modules/users/users.service.ts
 import prisma from "@/core/prisma";
-import { Role, SpecialtyStatus } from "@prisma/client";
+import { Role } from "@prisma/client";
+import bcrypt from "bcrypt";
+import { ClientProfileService } from "./clientprofile/clientprofile.service";
+import { ProfessionalProfileService } from "./professionalprofile/professionalprofile.service";
+import { AdminProfileService } from "./adminprofile/adminprofile.service";
+import { ConfigService } from "../config/config.service";
+import path from "path";
+import { UpdateProfileInput } from "./users.types";
+import fs from "fs";
+// Map de rol -> servicio de perfil
+const profileServiceMap: Record<Role, any> = {
+  CLIENT: ClientProfileService,
+  PROFESSIONAL: ProfessionalProfileService,
+  ADMIN: AdminProfileService,
+};
 
 export class UsersService {
   static async me(userId: number, role: Role) {
-    const base = await prisma.user.findUnique({
+    const user = await prisma.user.findUnique({
       where: { id: userId },
-      include: { customConfig: true },
     });
 
-    if (!base) throw new Error("Usuario no existe");
+    if (!user) throw new Error("Usuario no existe");
 
-    if (!base.customConfig) {
-      throw new Error("CustomConfig no inicializada");
-    }
+    const config = await ConfigService.getByUser(userId);
 
-    const config = {
-      language: base.customConfig.language,
-      theme: base.customConfig.theme,
-      layout: base.customConfig.layout,
-      notificationsEnabled: base.customConfig.notificationsEnabled,
+    const service = profileServiceMap[role];
+    if (!service) throw new Error("Rol no soportado");
+
+    const profile = await service.me(userId);
+
+    return {
+      role,
+      email: user.email,
+      isVerified: user.isVerified,
+      profile,
+      config,
     };
+  }
 
-    if (role === Role.CLIENT) {
-      const profile = await prisma.clientProfile.findUnique({
-        where: { userId },
-        include: {
-          _count: { select: { appointments: true } },
-        },
-      });
+  ///cambio de correo
+  static async changeEmail(
+    userId: number,
+    currentPassword: string,
+    newEmail: string,
+  ) {
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+    });
 
-      return {
-        role,
-        profile,
-        config,
-      };
+    if (!user) throw new Error("Usuario no existe");
+
+    const valid = await bcrypt.compare(currentPassword, user.password);
+
+    if (!valid) {
+      throw new Error("Contraseña incorrecta");
     }
 
-    if (role === Role.PROFESSIONAL) {
-      const profile = await prisma.professionalProfile.findUnique({
-        where: { userId },
-        include: {
-          specialties: {
-            where: { status: SpecialtyStatus.APPROVED }, // solo specialties aprobadas
-            include: { specialty: true },
-          },
-        },
-      });
+    const exists = await prisma.user.findUnique({
+      where: { email: newEmail },
+    });
 
-      if (!profile) throw new Error("Perfil no existe");
-
-      const {
-        id,
-        name,
-        lastName,
-        phone,
-        avatar,
-        description,
-        verificationStatus,
-        specialties,
-      } = profile;
-
-      return {
-        role,
-        profile: {
-          id,
-          name,
-          lastName,
-          phone,
-          avatar,
-          description,
-          verificationStatus,
-          specialties: specialties.map((ps) => ({
-            id: ps.specialty.id,
-            name: ps.specialty.name,
-            description: ps.specialty.description,
-          })),
-        },
-        config,
-      };
+    if (exists) {
+      throw new Error("El correo ya está en uso");
     }
 
-    if (role === Role.ADMIN) {
-      const profile = await prisma.adminProfile.findUnique({
-        where: { userId },
-      });
+    const updated = await prisma.user.update({
+      where: { id: userId },
+      data: {
+        email: newEmail,
+        isVerified: false,
+      },
+    });
 
-      return {
-        role,
-        profile,
-        config,
-      };
+    return {
+      email: updated.email,
+      isVerified: updated.isVerified,
+    };
+  }
+
+  // cambio de password:
+  static async changePassword(
+    userId: number,
+    currentPassword: string,
+    newPassword: string,
+  ) {
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+    });
+
+    if (!user) throw new Error("Usuario no existe");
+
+    const valid = await bcrypt.compare(currentPassword, user.password);
+
+    if (!valid) {
+      throw new Error("Contraseña actual incorrecta");
     }
+
+    const hashed = await bcrypt.hash(newPassword, 10);
+
+    await prisma.$transaction([
+      prisma.user.update({
+        where: { id: userId },
+        data: { password: hashed },
+      }),
+
+      prisma.refreshToken.updateMany({
+        where: { userId },
+        data: { isRevoked: true },
+      }),
+    ]);
+
+    return { message: "Contraseña actualizada" };
+  }
+
+  // cambio de avatar
+  static async updateAvatar(userId: number, role: Role, newAvatar: string) {
+    const service = profileServiceMap[role];
+
+    if (!service) throw new Error("Rol no soportado");
+
+    const currentProfile = await service.findByUserId(userId);
+    const oldAvatar = currentProfile?.avatar;
+
+    // borrar primero
+    if (oldAvatar && oldAvatar !== newAvatar) {
+      const fileName = path.basename(oldAvatar);
+      const oldPath = path.join(
+        process.cwd(),
+        "public",
+        "img",
+        "avatars",
+        fileName,
+      );
+      try {
+        if (fs.existsSync(oldPath)) {
+          fs.unlinkSync(oldPath);
+          console.log("Avatar eliminado:", oldPath);
+        }
+      } catch (err) {
+        console.error("Error eliminando avatar:", err);
+      }
+    }
+
+    await service.updateProfile(userId, {
+      avatar: newAvatar,
+    });
+
+    return { avatar: newAvatar };
+  }
+
+  static async updateProfile(
+    userId: number,
+    role: Role,
+    data: UpdateProfileInput,
+  ) {
+    const service = profileServiceMap[role];
+    if (!service) throw new Error("Rol no soportado");
+
+    return service.updateProfile(userId, data);
   }
 }

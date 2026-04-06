@@ -31,7 +31,7 @@ export const Modal = ({ title, onClose, children }: ModalProps) => {
       <div
         className={`
           w-full max-w-lg rounded-2xl
-          bg-white dark:bg-neutral-900/70
+          bg-white/70 dark:bg-neutral-900/70
           backdrop-blur-xl
           border border-white/30 dark:border-white/10
           shadow-2xl overflow-hidden

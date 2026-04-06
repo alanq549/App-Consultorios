@@ -1,5 +1,7 @@
+///src/api/auth.api.ts
 import api from '@/api/axios'
 import type { AuthUser, LoginResponse, RegisterRequest } from '@/types/auth.types'
+
 
 export const authApi = {
  register: (data: RegisterRequest) =>

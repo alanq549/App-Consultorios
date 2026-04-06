@@ -1,32 +1,16 @@
 // src/modules/service/service.controller.ts
 import { Request, Response, NextFunction } from "express";
 import { ServiceService } from "./service.service";
-import {
-  CreateServiceSchema,
-  UpdateServiceSchema,
-} from "./service.dto";
-import prisma from "@/core/prisma";
+import { CreateServiceSchema, UpdateServiceSchema } from "./service.dto";
 
 export class ServiceController {
   static async create(req: Request, res: Response, next: NextFunction) {
     try {
-      // 1️⃣ Obtener el professionalProfile real
-      const professionalProfile = await prisma.professionalProfile.findUnique({
-        where: { userId: req.user!.id },
-      });
+      const profileId = await ServiceService.getProfileIdByUser(req.user!.id);
 
-      if (!professionalProfile) {
-        throw new Error("Perfil profesional no existe");
-      }
-
-      // 2️⃣ Validar datos
       const data = CreateServiceSchema.parse(req.body);
 
-      // 3️⃣ Crear servicio
-      const service = await ServiceService.create(
-        professionalProfile.id,
-        data
-      );
+      const service = await ServiceService.create(profileId, data);
 
       res.status(201).json(service);
     } catch (err) {
@@ -37,7 +21,7 @@ export class ServiceController {
   static async listByProfessional(
     req: Request,
     res: Response,
-    next: NextFunction
+    next: NextFunction,
   ) {
     try {
       const profileId = Number(req.params.profileId);
@@ -52,31 +36,27 @@ export class ServiceController {
     try {
       const id = Number(req.params.id);
       const data = UpdateServiceSchema.parse(req.body);
-      const professionalProfile = await prisma.professionalProfile.findUnique({
-  where: { userId: req.user!.id },
-});
+      const profileId = await ServiceService.getProfileIdByUser(req.user!.id);
 
+      const service = await ServiceService.update(id, profileId, data);
 
-const service = await ServiceService.update(
-  id,
-  professionalProfile!.id,
-  data
-);      res.json(service);
+      res.json(service);
     } catch (err) {
       next(err);
     }
   }
 
-  static async remove(req: Request, res: Response, next: NextFunction) {
-    try {
-      const id = Number(req.params.id);
-      const professionalProfile = await prisma.professionalProfile.findUnique({
-  where: { userId: req.user!.id },
-});
-      await ServiceService.remove(id, professionalProfile!.id);
-      res.status(204).send();
-    } catch (err) {
-      next(err);
-    }
+static async remove(req: Request, res: Response, next: NextFunction) {
+  try {
+    const id = Number(req.params.id);
+
+    const profileId = await ServiceService.getProfileIdByUser(req.user!.id);
+
+    await ServiceService.remove(id, profileId);
+
+    res.status(204).send();
+  } catch (err) {
+    next(err);
   }
+}
 }

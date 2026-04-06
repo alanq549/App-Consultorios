@@ -43,6 +43,34 @@ const authSlice = createSlice({
       state.status = "authenticated"; // 🔥 CLAVE
     },
 
+    updateAvatar: (state, action: PayloadAction<string>) => {
+
+      if (!state.user) return;
+
+      state.user.profile = {
+        ...state.user.profile,
+        avatar: action.payload, // ya es la URL del backend
+      };
+
+    },
+
+    updateProfile: (
+      state,
+      action: PayloadAction<{
+        name?: string;
+        lastName?: string;
+        phone?: string;
+        description?: string;
+      }>,
+    ) => {
+      if (!state.user?.profile) return;
+
+      state.user.profile = {
+        ...state.user.profile,
+        ...action.payload,
+      };
+    },
+
     /* LOGOUT */
     logout: (state) => {
       state.token = null;
@@ -53,7 +81,13 @@ const authSlice = createSlice({
   },
 });
 
-export const { setChecking, setCredentials, setMe, logout } =
-  authSlice.actions;
+export const {
+  setChecking,
+  setCredentials,
+  setMe,
+  updateAvatar,
+  updateProfile,
+  logout,
+} = authSlice.actions;
 
 export default authSlice.reducer;

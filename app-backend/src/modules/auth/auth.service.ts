@@ -22,6 +22,7 @@ function hashToken(token: string) {
 }
 
 export class AuthService {
+  // registro con creación de perfil y envío de email de verificación
   static async register(data: RegisterInput) {
     const { email, password, role, profile } = data;
     const hashed = await bcrypt.hash(password, 10);
@@ -112,17 +113,29 @@ export class AuthService {
     }
   }
 
+  //login con validacion de usario, contrasena y verificacion de cuenta y generacion de tokens
   static async login(email: string, password: string) {
+    // Buscar usuario
     const user = await prisma.user.findUnique({ where: { email } });
-    if (!user) throw new Error("Credenciales inválidas");
+
+    // Validaciones con log
+    if (!user) {
+      console.log("Usuario no encontrado:", email);
+      throw new Error("Credenciales inválidas");
+    }
 
     const valid = await bcrypt.compare(password, user.password);
-    if (!valid) throw new Error("Credenciales inválidas");
+    if (!valid) {
+      console.log("Contraseña inválida para:", email);
+      throw new Error("Credenciales inválidas");
+    }
 
     if (!user.isVerified) {
+      console.log("Cuenta no verificada para:", email);
       throw new Error("Cuenta no verificada");
     }
 
+    // Generar tokens
     const accessToken = generateToken({
       userId: user.id,
       role: user.role,
@@ -134,7 +147,7 @@ export class AuthService {
     await prisma.refreshToken.create({
       data: {
         userId: user.id,
-        token: refreshTokenHash, // 👈 HASH
+        token: refreshTokenHash,
         expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
       },
     });
@@ -151,6 +164,7 @@ export class AuthService {
     };
   }
 
+  // verificacion de la cuenta por token
   static async verifyByToken(token: string) {
     const tokenHash = crypto.createHash("sha256").update(token).digest("hex");
 
@@ -262,6 +276,7 @@ export class AuthService {
     };
   }
 
+  // olvide  la contrasena:
   static async forgotPassword(email: string) {
     const user = await prisma.user.findUnique({ where: { email } });
     if (!user) return;
@@ -278,9 +293,12 @@ export class AuthService {
       },
     });
 
-    await sendResetPasswordEmail(email, token); // token plano SOLO por email
+    const resetUrl = `${process.env.FRONTEND_URL}/reset-password?token=${token}`;
+
+    await sendResetPasswordEmail(email, resetUrl);
   }
 
+  // restablecer la contrasena con token
   static async resetPassword(token: string, newPassword: string) {
     const tokenHash = crypto.createHash("sha256").update(token).digest("hex");
 
@@ -303,9 +321,15 @@ export class AuthService {
         where: { id: reset.userId },
         data: { password: hashed },
       }),
+
       prisma.passwordReset.update({
         where: { id: reset.id },
         data: { isUsed: true },
+      }),
+
+      prisma.refreshToken.updateMany({
+        where: { userId: reset.userId },
+        data: { isRevoked: true },
       }),
     ]);
   }

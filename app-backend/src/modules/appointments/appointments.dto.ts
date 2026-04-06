@@ -12,12 +12,11 @@ export const CreateAppointmentSchema = z.object({
     .int()
     .min(0)
     .max(1440)
-    .refine(v => v % SLOT_MINUTES === 0, {
+    .refine((v) => v % SLOT_MINUTES === 0, {
       message: "startMin debe ser múltiplo de 15",
     }),
   notes: z.string().optional(),
 });
-
 
 export type CreateAppointmentDTO = z.infer<typeof CreateAppointmentSchema>;
 
@@ -57,6 +56,7 @@ export type AppointmentResponseDTO = {
     id: number;
     name: string;
     lastName?: string | null;
+    avatar?: string | null;
     user: {
       id: number;
       email: string;
@@ -64,9 +64,7 @@ export type AppointmentResponseDTO = {
   } | null;
 };
 
-
-// src/modules/appointments/appointments.dto.ts
-/// clientes ocacionales (invitados) los registran los profesionales 
+/// clientes ocacionales (invitados) los registran los profesionales
 export const CreateGuestAppointmentSchema = z.object({
   professionalProfileId: z.number().int(),
   serviceId: z.number().int(),
@@ -78,12 +76,15 @@ export const CreateGuestAppointmentSchema = z.object({
   guestPhone: z.string().optional(),
 });
 
-export type CreateGuestAppointmentDTO = z.infer<typeof CreateGuestAppointmentSchema>;
+export type CreateGuestAppointmentDTO = z.infer<
+  typeof CreateGuestAppointmentSchema
+>;
 
 // DTO para actualizar el estado de una cita (confirmar o cancelar)
 export const UpdateAppointmentStatusSchema = z.object({
   status: z.enum(["CONFIRMED", "CANCELLED"]),
 });
 
-export type UpdateAppointmentStatusDTO = 
-  z.infer<typeof UpdateAppointmentStatusSchema>;
+export type UpdateAppointmentStatusDTO = z.infer<
+  typeof UpdateAppointmentStatusSchema
+>;

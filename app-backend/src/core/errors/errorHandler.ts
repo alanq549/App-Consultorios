@@ -1,12 +1,14 @@
+/// src/core/errors/errorHandler.ts
 import { Request, Response, NextFunction } from "express";
 import { ZodError } from "zod";
 import { AppError } from "./AppError";
+import { MulterError } from "multer";
 
 export function errorHandler(
   err: any,
   req: Request,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) {
   // 🧠 Zod
   if (err instanceof ZodError) {
@@ -27,6 +29,14 @@ export function errorHandler(
   if (err?.code === "P2002") {
     return res.status(409).json({
       message: "Recurso duplicado",
+    });
+  }
+
+  // 📦 Multer
+  if (err instanceof MulterError) {
+    return res.status(400).json({
+      message: "Error al subir archivo",
+      error: err.message,
     });
   }
 

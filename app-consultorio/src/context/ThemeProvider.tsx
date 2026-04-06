@@ -16,13 +16,6 @@ useEffect(() => {
     // 👇 incluye light, undefined, null, logout, etc.
     root.classList.remove("dark");
   }
-
-  console.log(
-    "🔥 Tema aplicado:",
-    theme ?? "LIGHT (default)",
-    "Clases html:",
-    root.className
-  );
 }, [theme]);
 
 

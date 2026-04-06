@@ -1,4 +1,5 @@
 /// src/types/service.types.ts
+import type { Specialty } from "@/types/Specialty.type";
 export interface Service {
   id: number;
   name: string;
@@ -6,12 +7,28 @@ export interface Service {
   durationMin: number;
   price: number;
   isActive: boolean;
-  profileId: number;
+
+  specialty: Specialty;
+
+  professionalProfileId: number;
+
   createdAt: string;
   updatedAt: string;
 }
 
-export interface ServiceSelectorProps {
-  professionalId: number;
-  onSelect: (serviceId: number) => void;
+export interface CreateServiceDTO {
+  name: string;
+  description: string;
+  durationMin: number;
+  price: number;
+  specialtyId: number;
+}
+
+export interface UpdateServiceDTO {
+  name?: string;
+  description?: string;
+  durationMin?: number;
+  price?: number;
+  specialtyId?: number;
+  isActive?: boolean;
 }

@@ -20,7 +20,7 @@ router.post(
   ServiceController.create
 );
 
-router.put(
+router.patch(
   "/:id",
   authMiddleware,
   requireRole("PROFESSIONAL"),

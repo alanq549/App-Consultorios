@@ -1,5 +1,4 @@
 // src/hooks/useAuthInit.ts
-// src/hooks/useAuthInit.ts
 import { useEffect } from "react"
 import { useAppDispatch, useAppSelector } from "./useRedux"
 import api from "@/api/axios"

@@ -3,6 +3,42 @@ import prisma from "@/core/prisma";
 import { CreateServiceDTO, UpdateServiceDTO } from "./service.dto";
 
 export class ServiceService {
+  /// funcion para validar la especialidad del profesional
+  private static async ensureProfessionalHasSpecialty(
+    profileId: number,
+    specialtyId: number,
+  ) {
+    const hasSpecialty = await prisma.professionalSpecialty.findFirst({
+      where: {
+        professionalId: profileId,
+        specialtyId,
+        status: "APPROVED",
+      },
+    });
+
+    if (!hasSpecialty) {
+      throw new Error("El profesional no tiene esta especialidad");
+    }
+  }
+
+  private static async ensureUniqueServiceName(
+    profileId: number,
+    name: string,
+    excludeId?: number,
+  ) {
+    const existing = await prisma.service.findFirst({
+      where: {
+        profileId,
+        name,
+        isActive: true,
+        ...(excludeId ? { NOT: { id: excludeId } } : {}),
+      },
+    });
+
+    if (existing) {
+      throw new Error("Ya existe un servicio con ese nombre");
+    }
+  }
 
   // Validaciones de negocio comunes para create/update
   private static validateBusinessRules(data: {
@@ -26,30 +62,17 @@ export class ServiceService {
     }
   }
 
-  // crear servicio para un professional logeado
-  static async create(profileId: number, data: CreateServiceDTO) {
-    this.validateBusinessRules(data);
-
-    // Validar nombre único por profesional
-    const existing = await prisma.service.findFirst({
-      where: {
-        profileId,
-        name: data.name,
-        isActive: true,
-      },
+  static async getProfileIdByUser(userId: number): Promise<number> {
+    const profile = await prisma.professionalProfile.findUnique({
+      where: { userId },
+      select: { id: true },
     });
 
-    if (existing) {
-      throw new Error("Ya existe un servicio con ese nombre");
+    if (!profile) {
+      throw new Error("Perfil profesional no existe");
     }
 
-    return prisma.service.create({
-      data: {
-        ...data,
-        profileId,
-      },
-      include: { specialty: true },
-    });
+    return profile.id;
   }
 
   // listar servicios activos de un profesional
@@ -61,15 +84,27 @@ export class ServiceService {
     });
   }
 
-  // actualizar servicio (solo por su dueño)
-  static async update(
-    id: number,
-    profileId: number,
-    data: UpdateServiceDTO
-  ) {
+  // crear servicio para un professional logeado
+  static async create(profileId: number, data: CreateServiceDTO) {
     this.validateBusinessRules(data);
 
-    // Validar ownership
+    await this.ensureUniqueServiceName(profileId, data.name);
+
+    await this.ensureProfessionalHasSpecialty(profileId, data.specialtyId);
+
+    return prisma.service.create({
+      data: {
+        ...data,
+        profileId,
+      },
+      include: { specialty: true },
+    });
+  }
+
+  // actualizar servicio (solo por su dueño)
+  static async update(id: number, profileId: number, data: UpdateServiceDTO) {
+    this.validateBusinessRules(data);
+
     const service = await prisma.service.findFirst({
       where: { id, profileId },
     });
@@ -78,20 +113,12 @@ export class ServiceService {
       throw new Error("No autorizado o no existe");
     }
 
-    // Validar nombre único si se cambia
     if (data.name && data.name !== service.name) {
-      const duplicate = await prisma.service.findFirst({
-        where: {
-          profileId,
-          name: data.name,
-          isActive: true,
-          NOT: { id },
-        },
-      });
+      await this.ensureUniqueServiceName(profileId, data.name, id);
+    }
 
-      if (duplicate) {
-        throw new Error("Ya existe un servicio con ese nombre");
-      }
+    if (data.specialtyId && data.specialtyId !== service.specialtyId) {
+      await this.ensureProfessionalHasSpecialty(profileId, data.specialtyId);
     }
 
     return prisma.service.update({
@@ -101,7 +128,7 @@ export class ServiceService {
     });
   }
 
-    // desactivar servicio (solo por su dueño)
+  // desactivar servicio (solo por su dueño)
   static async remove(id: number, profileId: number) {
     const service = await prisma.service.findFirst({
       where: { id, profileId },
@@ -122,7 +149,7 @@ export class ServiceService {
 
     if (futureAppointments > 0) {
       throw new Error(
-        "No puedes desactivar un servicio con citas futuras agendadas"
+        "No puedes desactivar un servicio con citas futuras agendadas",
       );
     }
 

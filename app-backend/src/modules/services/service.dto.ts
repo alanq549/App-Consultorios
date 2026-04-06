@@ -10,6 +10,7 @@ export const CreateServiceSchema = z.object({
     .number()
     .int()
     .positive()
+    .max(480)
     .refine((v) => v % SLOT_MINUTES === 0, { message: "durationMin debe ser múltiplo de 15" }),
   price: z.number().positive(),
   specialtyId: z.number().int().positive(), // <-- agregado
@@ -25,6 +26,7 @@ export const UpdateServiceSchema = z.object({
     .number()
     .int()
     .positive()
+    .max(480, {message: "la duracion no puede ser mayor a 8 hrs (480 minutos)"})
     .refine((v) => v % SLOT_MINUTES === 0, { message: "durationMin debe ser múltiplo de 15" })
     .optional(),
   price: z.number().positive().optional(),

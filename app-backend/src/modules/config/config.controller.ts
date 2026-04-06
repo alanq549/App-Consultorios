@@ -1,3 +1,4 @@
+//src/modules/config/config.controller.ts
 import { NextFunction, Request, Response } from "express";
 import { ConfigService } from "./config.service";
 import { UpdateConfigDTO } from "./config.dto";

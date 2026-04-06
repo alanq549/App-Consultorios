@@ -158,6 +158,7 @@ export async function seedClients() {
             appointmentId: appointment.id,
             title: `Nueva cita ${app.status}`,
             message: `Tienes una cita con ${professional.name} ${professional.lastName} el ${appointment.date.toLocaleString()}`,
+            type: "APPOINTMENT_CREATED",
           },
         });
       }

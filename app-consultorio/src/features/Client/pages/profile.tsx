@@ -1,41 +1,22 @@
-import { staticbackend } from "@/config/variables";
+/// src/features/Client/pages/profile.tsx
+
 import { useAppSelector } from "@/hooks/auth/useRedux";
+import {ProfileView}  from "@/features/user/views/ProfileView";
+import type { RootState } from "@/store";
 
 const ClientProfile = () => {
-  const user = useAppSelector((state) => state.auth.user);
+  const user = useAppSelector((state: RootState) => state.auth.user);
 
   if (!user) {
-    return <p>Cargando perfil...</p>;
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh] space-y-4">
+        <div className="w-10 h-10 border-4 border-blue-500/20 border-t-blue-500 rounded-full animate-spin" />
+        <p className="text-slate-400 font-medium animate-pulse">Cargando perfil...</p>
+      </div>
+    );
   }
 
-  const { profile, email } = user;
-
-   const avatarUrl = user.profile.avatar
-      ? `${staticbackend}${user.profile.avatar}`
-      : '/avatar-placeholder.png'
-
-  return (
-    <div className="mx-auto bg-gray-50 rounded-lg shadow p-6 dark:bg-neutral-800">
-      <div className="flex items-center gap-4 mb-6">
-        <img
-          src={avatarUrl ?? "/avatar-default.png"}
-          alt={profile.name}
-          className="w-24 h-24 rounded-full object-cover"
-        />
-
-        <div>
-          <h2 className="text-2xl font-bold">
-            {profile.name} {profile.lastName}
-          </h2>
-          <p className="text-sm text-gray-500 dark:text-zinc-400">
-            {email}
-          </p>
-        </div>
-      </div>
-
-      {/* resto del perfil */}
-    </div>
-  );
+  return <ProfileView  />;
 };
 
 export default ClientProfile;

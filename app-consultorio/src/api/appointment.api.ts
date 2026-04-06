@@ -42,3 +42,17 @@ export const getAvailability = async (
   return data; // array de slots [{ startMin, endMin }]
 };
 
+
+
+/// actualizar el estado de una cita (cancelar, confirmar, etc)
+export const updateAppointmentStatus = async (
+  appointmentId: number,
+  status: "CONFIRMED" | "CANCELLED"
+) => {
+  const { data } = await api.patch<AppointmentResponseDTO>(
+    `/appointments/${appointmentId}/status`,
+    { status }
+  );
+
+  return data;
+};

@@ -9,14 +9,12 @@ import professionalProfileRoutes from "./modules/users/professionalprofile/profe
 import serviceRoutes from "./modules/services/service.routes";
 import schedulesRoutes from "./modules/schedule/schedule.routes";
 import notificationRoutes from "@/modules/notifications/notifications.routes";
+import SpecialtyRoutes  from "./modules/specialty/specialty.routes";
+import path from "path";
 
 import "express-async-errors";
 
-
 const app = express();
-app.use("/img", express.static("public/img"));
-
-app.use(express.json()); // 👈 ESTE ES EL PUTO CLAVE 🔑
 
 // 🔹 CORS aquí
 app.use(cors({
@@ -24,9 +22,16 @@ app.use(cors({
   credentials: true,               // si envías cookies
 }));
 
+app.use(express.json());
+// Para servir archivos estaticos (como imagenes de avatar y certificados)
+app.use("/img", express.static("public/img"));
+app.use("/avatars", express.static(path.resolve(__dirname, "../public/img/avatars")));
+app.use("/certificates", express.static("public/certificates"));
 
+// Rutas
 app.use("/api/auth", authRoutes);
-app.use("/api/users", userRoutes);
+app.use("/api/specialties", SpecialtyRoutes);
+app.use("/api/users", userRoutes); // otros endpoints usan json solo es avatar el que usa multipart/form-data, y multer lo maneja internamente sin afectar a los demás endpoints
 app.use("/api/config", configRoutes);
 app.use("/api/appointments", AppointmentRoutes)
 app.use("/api/professionals", professionalProfileRoutes);

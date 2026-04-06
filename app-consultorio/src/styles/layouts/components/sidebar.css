@@ -21,7 +21,7 @@
     @apply 
       font-bold
       /* Estilo activo con Glassmorphism marcado */
-      bg-indigo-500/10 text-indigo-600 dark:text-indigo-400
+      bg-indigo-500/10 text-blue-700 dark:text-blue-400
       border-white/20 dark:border-white/10
       shadow-[0_8px_32px_0_rgba(99,102,241,0.1)];
   }
@@ -29,7 +29,7 @@
   /* Indicador lateral para el item activo */
   .navlink-active::before {
     content: "";
-    @apply absolute left-0 w-1 h-1/2 bg-indigo-500 rounded-r-full;
+    @apply absolute left-0 w-1 h-1/2 bg-blue-600 rounded-r-full;
   }
 }
 

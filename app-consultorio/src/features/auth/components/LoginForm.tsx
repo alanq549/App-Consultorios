@@ -1,6 +1,7 @@
 // src/features/auth/components/LoginForm.tsx
 import { useState } from "react";
 import { useAuthActions } from "@/hooks/auth/useAuthActions";
+import { Link } from "react-router-dom";
 
 export default function LoginForm() {
   const { login } = useAuthActions();
@@ -52,9 +53,12 @@ export default function LoginForm() {
        <div>
   <div className="flex justify-between items-center mb-1">
     <label className={labelStyles}>Contraseña</label>
-    <a href="#" className="text-xs text-indigo-600 hover:underline">
-      ¿Olvidaste tu contraseña?
-    </a>
+   <Link
+  to="/forgot-password"
+  className="text-xs text-indigo-600 hover:underline"
+>
+  ¿Olvidaste tu contraseña?
+</Link>
   </div>
 
   <div className="relative">

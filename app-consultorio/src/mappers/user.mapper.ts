@@ -1,3 +1,4 @@
+/// src/mappers/user.mapper.ts
 import  type { AuthUser } from "@/types/auth.types";
 import type { UserProfileUI } from "@/types/ui.types";
 
