@@ -18,7 +18,7 @@ export const mapAuthUserToProfileUI = (
     return {
       ...base,
       role: "PROFESSIONAL",
-      specialtyName: user.profile.specialty.name,
+      specialtyName: user.profile.specialties[0]?.name || "Sin especialidad",
       description: user.profile.description,
     };
   }
