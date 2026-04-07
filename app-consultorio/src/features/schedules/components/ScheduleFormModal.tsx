@@ -112,7 +112,7 @@ export function ScheduleFormModal({ schedule, onClose }: Props) {
                 Día de la semana
               </label>
               <div className="grid grid-cols-4 gap-2">
-                {days.map((d, i) => (
+                {days.map((_d, i) => (
                   <button
                     key={i}
                     type="button"
