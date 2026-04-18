@@ -10,6 +10,7 @@ import serviceRoutes from "./modules/services/service.routes";
 import schedulesRoutes from "./modules/schedule/schedule.routes";
 import notificationRoutes from "@/modules/notifications/notifications.routes";
 import SpecialtyRoutes  from "./modules/specialty/specialty.routes";
+import AdminRoutes from "@/modules/admin/admin.routes"
 import path from "path";
 
 import "express-async-errors";
@@ -30,6 +31,7 @@ app.use("/certificates", express.static("public/certificates"));
 
 // Rutas
 app.use("/api/auth", authRoutes);
+app.use("/api/admin", AdminRoutes);
 app.use("/api/specialties", SpecialtyRoutes);
 app.use("/api/users", userRoutes); // otros endpoints usan json solo es avatar el que usa multipart/form-data, y multer lo maneja internamente sin afectar a los demás endpoints
 app.use("/api/config", configRoutes);

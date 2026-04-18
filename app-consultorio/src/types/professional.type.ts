@@ -1,10 +1,6 @@
-export type SocialPlatform =
-  | "FACEBOOK"
-  | "INSTAGRAM"
-  | "LINKEDIN"
-  | "WEBSITE";
+export type SocialPlatform = "FACEBOOK" | "INSTAGRAM" | "LINKEDIN" | "WEBSITE";
 
-  export type ProfessionalStatus =
+export type ProfessionalStatus =
   | "PENDING"
   | "APPROVED"
   | "SUSPENDED"
@@ -28,17 +24,18 @@ export type Specialty = {
   id: number;
   name: string;
   description?: string;
+  status?: "PENDING" | "APPROVED" | "REJECTED";
 };
-
 
 export type Professional = {
   id: number;
   name: string;
   lastName: string;
   avatar?: string;
+  phone?: string;
   verificationStatus: ProfessionalStatus;
   description?: string;
-    ratingAvg?: number;
+  ratingAvg?: number;
   ratingCount?: number;
   specialties?: Specialty[];
   socialLinks?: socialLinks[];

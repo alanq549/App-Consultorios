@@ -3,17 +3,26 @@ import { useQuery } from "@tanstack/react-query";
 import { getServicesByProfessional } from "@/api/service.api";
 import type { Service } from "@/types/service.type";
 import { ServiceCard } from "./ServiceCard";
+import { useSelector } from "react-redux";
+import type { RootState } from "@/store";
 
 interface Props {
   onEdit: (service: Service) => void;
 }
 
 export function ServiceList({ onEdit }: Props) {
-  const { data: services = [], isLoading } = useQuery({
-    queryKey: ["services"],
-    queryFn: () => getServicesByProfessional(1),
-  });
+const user = useSelector((state: RootState) => state.auth.user);
 
+const professionalId = user?.profile?.id;
+
+const { data: services = [], isLoading } = useQuery({
+  queryKey: ["services", professionalId],
+  queryFn: () => getServicesByProfessional(professionalId!),
+  enabled: !!professionalId,
+});
+
+
+if (!user || user.role !== "PROFESSIONAL") return null;
   if (isLoading) return <p className="text-slate-400 text-sm">Cargando servicios...</p>;
 
   return (

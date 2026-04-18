@@ -63,8 +63,9 @@ const getSocialConfig = (type: string) => {
 
   return SOCIAL_STYLE.website;
 };
-
 export function ProfessionalProfile({ professional }: Props) {
+
+  console.log("Especialidades: ", professional.specialties);
 
 
 

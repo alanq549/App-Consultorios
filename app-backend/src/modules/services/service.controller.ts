@@ -5,6 +5,7 @@ import { CreateServiceSchema, UpdateServiceSchema } from "./service.dto";
 
 export class ServiceController {
   static async create(req: Request, res: Response, next: NextFunction) {
+      console.log("🔥 ENTRO AL CONTROLLER");
     try {
       const profileId = await ServiceService.getProfileIdByUser(req.user!.id);
 
@@ -26,6 +27,7 @@ export class ServiceController {
     try {
       const profileId = Number(req.params.profileId);
       const services = await ServiceService.findByProfessional(profileId);
+
       res.json(services);
     } catch (err) {
       next(err);

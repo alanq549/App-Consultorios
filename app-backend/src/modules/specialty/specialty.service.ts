@@ -1,3 +1,4 @@
+///src/modules/specialty/specialty.service.ts
 import prisma from "@/core/prisma";
 import { CreateSpecialtyDTO, UpdateSpecialtyDTO } from "./specialty.dto";
 
@@ -23,22 +24,19 @@ export class SpecialtyService {
     });
   }
 
-  static async listByProfessional(profileId: number) {
-    const relations = await prisma.professionalSpecialty.findMany({
-      where: {
-        professionalId: profileId,
-        status: "APPROVED",
-        specialty: {
-          isActive: true,
-        },
+static async listByProfessional(profileId: number) {
+  return prisma.professionalSpecialty.findMany({
+    where: {
+      professionalId: profileId,
+      specialty: {
+        isActive: true,
       },
-      include: {
-        specialty: true,
-      },
-    });
-
-    return relations.map((r) => r.specialty);
-  }
+    },
+    include: {
+      specialty: true,
+    },
+  });
+}
 
   static async update(id: number, data: UpdateSpecialtyDTO) {
     const specialty = await prisma.specialty.findUnique({

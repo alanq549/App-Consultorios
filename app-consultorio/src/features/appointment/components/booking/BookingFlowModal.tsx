@@ -9,6 +9,7 @@ import type { Service } from "@/types/service.type";
 
 import { DateTimeSelector } from "./DateTimeSelector";
 import { ServiceSelector } from "./ServiceSelector";
+import toast from "react-hot-toast";
 
 interface Props {
   professional: BookingProfessional;
@@ -54,7 +55,13 @@ export function BookingFlowModal({ professional, onClose }: Props) {
       },
       {
         onSuccess: () => {
+          toast.success(`Listo ✔ Tu cita con ${professional.name} ${professional.lastName} fue agendada`);
           onClose();
+        },
+
+        onError: (error) => {
+          toast.error("No se pudo agendar la cita");
+          console.error(error);
         },
       }
     );

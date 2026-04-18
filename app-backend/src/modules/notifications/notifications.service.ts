@@ -4,13 +4,12 @@ import prisma from "@/core/prisma";
 import { NotificationType } from "@prisma/client";
 
 export class NotificationService {
-
   static async createNotification(
     userId: number,
     type: NotificationType,
     title: string,
     message: string,
-    appointmentId?: number
+    appointmentId?: number,
   ) {
     return prisma.notification.create({
       data: {
@@ -30,7 +29,7 @@ export class NotificationService {
       userId,
       NotificationType.WELCOME,
       "Bienvenido!",
-      "Gracias por unirte a nuestra plataforma"
+      "Gracias por unirte a nuestra plataforma",
     );
   }
 
@@ -38,14 +37,14 @@ export class NotificationService {
   static async notifyAppointmentCreated(
     clientId: number,
     professionalId: number,
-    appointmentId: number
+    appointmentId: number,
   ) {
     await this.createNotification(
       clientId,
       NotificationType.APPOINTMENT_CREATED,
       "Cita creada",
       "Tu cita ha sido registrada",
-      appointmentId
+      appointmentId,
     );
 
     await this.createNotification(
@@ -53,7 +52,7 @@ export class NotificationService {
       NotificationType.APPOINTMENT_CREATED,
       "Nueva cita",
       "Tienes una nueva cita agendada",
-      appointmentId
+      appointmentId,
     );
   }
 
@@ -61,42 +60,39 @@ export class NotificationService {
   static async notifyAppointmentStatus(
     userId: number,
     appointmentId: number,
-    status: string
+    status: string,
   ) {
     return this.createNotification(
       userId,
       NotificationType.APPOINTMENT_STATUS_CHANGED,
       "Estado de cita actualizado",
       `Tu cita ahora está ${status}`,
-      appointmentId
+      appointmentId,
     );
   }
 
   // Review
-  static async notifyReviewRequest(
-    clientId: number,
-    appointmentId: number
-  ) {
+  static async notifyReviewRequest(clientId: number, appointmentId: number) {
     return this.createNotification(
       clientId,
       NotificationType.REVIEW_REQUEST,
       "Deja tu review",
       "Tu cita terminó, cuéntanos cómo fue",
-      appointmentId
+      appointmentId,
     );
   }
 
   static async notifyAppointmentConfirmed(
     clientUserId: number,
     professionalUserId: number,
-    appointmentId: number
+    appointmentId: number,
   ) {
     await this.createNotification(
       clientUserId,
       NotificationType.APPOINTMENT_CONFIRMED,
       "Cita confirmada",
       "Tu cita ha sido confirmada por el profesional",
-      appointmentId
+      appointmentId,
     );
 
     await this.createNotification(
@@ -104,7 +100,7 @@ export class NotificationService {
       NotificationType.APPOINTMENT_CONFIRMED,
       "Cita confirmada",
       "Has confirmado la cita exitosamente",
-      appointmentId
+      appointmentId,
     );
   }
 
@@ -112,7 +108,7 @@ export class NotificationService {
     clientUserId: number,
     professionalUserId: number,
     appointmentId: number,
-    cancelledBy: "SYSTEM" | "PROFESSIONAL"
+    cancelledBy: "SYSTEM" | "PROFESSIONAL",
   ) {
     const reason =
       cancelledBy === "SYSTEM"
@@ -124,7 +120,7 @@ export class NotificationService {
       NotificationType.APPOINTMENT_CANCELLED,
       "Cita cancelada",
       reason,
-      appointmentId
+      appointmentId,
     );
 
     await this.createNotification(
@@ -132,21 +128,21 @@ export class NotificationService {
       NotificationType.APPOINTMENT_CANCELLED,
       "Cita cancelada",
       "La cita fue cancelada correctamente",
-      appointmentId
+      appointmentId,
     );
   }
 
   static async notifyAppointmentCompleted(
     clientUserId: number,
     professionalUserId: number,
-    appointmentId: number
+    appointmentId: number,
   ) {
     await this.createNotification(
       clientUserId,
       NotificationType.APPOINTMENT_COMPLETED,
       "Cita completada",
       "Tu cita ha finalizado. Déjanos tu opinión.",
-      appointmentId
+      appointmentId,
     );
 
     await this.createNotification(
@@ -154,7 +150,78 @@ export class NotificationService {
       NotificationType.APPOINTMENT_COMPLETED,
       "La cita fue marcada como completada",
       "La cita fue marcada como completada",
-      appointmentId
+      appointmentId,
+    );
+  }
+
+  /// notificaciones para el status del perfil professional
+  static async notifyProfileSubmitted(userId: number) {
+    return this.createNotification(
+      userId,
+      NotificationType.SYSTEM,
+      "Perfil enviado",
+      "Tu perfil profesional está siendo revisado por el equipo",
+    );
+  }
+
+  static async notifyProfileApproved(userId: number) {
+    return this.createNotification(
+      userId,
+      NotificationType.SYSTEM,
+      "Perfil aprobado",
+      "Tu perfil profesional ha sido aprobado. Ya puedes recibir citas.",
+    );
+  }
+
+  static async notifyProfileRejected(userId: number) {
+    return this.createNotification(
+      userId,
+      NotificationType.SYSTEM,
+      "Perfil rechazado",
+      "Tu perfil fue rechazado. Revisa la información y vuelve a enviarlo.",
+    );
+  }
+  static async notifyProfileSuspended(userId: number) {
+    return this.createNotification(
+      userId,
+      NotificationType.SYSTEM,
+      "Perfil suspendido",
+      "Tu perfil ha sido suspendido. Contacta con el equipo de soporte para más información.",
+    );
+  }
+
+  static async notifySpecialtyRequested(userId: number) {
+    return this.createNotification(
+      userId,
+      NotificationType.SYSTEM,
+      "Solicitud de especialidad enviada",
+      "Tu solicitud de especialidad ha sido enviada. Será revisada por el equipo.",
+    );
+  }
+
+  static async notifySpecialtyApproved(userId: number) {
+    return this.createNotification(
+      userId,
+      NotificationType.SYSTEM,
+      "Especialidad aprobada",
+      "Tu especialidad ha sido aprobada. Ya puedes ofrecerla.",
+    );
+  }
+
+  static async notifySpecialtyRejected(userId: number) {
+    return this.createNotification(
+      userId,
+      NotificationType.SYSTEM,
+      "Especialidad rechazada",
+      "Tu especialidad fue rechazada. Revisa la información y vuelve a enviarla.",
+    );
+  }
+  static async notifySpecialtySuspended(userId: number) {
+    return this.createNotification(
+      userId,
+      NotificationType.SYSTEM,
+      "Especialidad suspendida",
+      "Tu especialidad ha sido suspendida. Contacta con el equipo de soporte para más información.",
     );
   }
 

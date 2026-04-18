@@ -4,6 +4,7 @@ import { professionalApi } from "@/api/professional.api";
 import { useAppDispatch } from "@/hooks/auth/useRedux";
 import { updateProfile } from "@/store/auth/authSlice";
 import { usersApi } from "@/api/users.api";
+import { useQueryClient } from "@tanstack/react-query";
 
 
 export const useProfessionalProfile = () => {
@@ -122,6 +123,34 @@ const addCertificate = async (
   }
 };
 
+
+const queryClient = useQueryClient();
+
+const requestSpecialty = async (specialtyId: number) => {
+  setLoading(true);
+  setError(null);
+
+  try {
+    const result = await professionalApi.requestSpecialty(specialtyId);
+
+    // 🔥 invalidar cache de specialties del usuario
+    queryClient.invalidateQueries({
+      queryKey: ["professional-profile"]
+    });
+
+    return result;
+  } catch (err: unknown) {
+    setError(
+      err instanceof Error
+        ? err.message
+        : "Error solicitando especialidad"
+    );
+    throw err;
+  } finally {
+    setLoading(false);
+  }
+};
+
   return {
     loading,
     error,
@@ -131,5 +160,6 @@ const addCertificate = async (
     addCertificate,
     removeCertificate,
     updateProfessionalProfile,
+    requestSpecialty,
   };
 };

@@ -1,5 +1,6 @@
 // src/components/ui/Modal.tsx
 import {type ReactNode, useEffect, useState } from "react";
+import { createPortal } from "react-dom"
 
 interface ModalProps {
   title: string;
@@ -22,7 +23,7 @@ export const Modal = ({ title, onClose, children }: ModalProps) => {
     setTimeout(onClose, 200); // esperar animación antes de cerrar
   };
 
-  return (
+  return createPortal (
     <div
       className={`fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 transition-opacity ${
         isVisible ? "opacity-100" : "opacity-0"
@@ -55,6 +56,7 @@ export const Modal = ({ title, onClose, children }: ModalProps) => {
         {/* Content */}
         <div className="p-6 text-gray-800 dark:text-gray-200">{children}</div>
       </div>
-    </div>
-  );
+    </div>,
+  document.body
+);
 };

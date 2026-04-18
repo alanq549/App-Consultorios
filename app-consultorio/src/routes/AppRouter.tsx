@@ -20,14 +20,21 @@ import ProfessionalAppointments from "@/features/Professional/pages/Professional
 import ServicesPage from "@/features/services/pages/ServicesPage";
 import SchedulesPage from "@/features/schedules/pages/schedulesPages";
 
+//admin
+import AdminDashboard from "@/features/admin/pages/AdminDashboard";
+import UserAll from "@/features/admin/pages/UserAll";
+
 import { ProtectedRoute } from "./ProtectedRoute";
 import { RoleGuard } from "./RoleGuard";
+import { ProfessionalVerificationGuard } from "./guards/ProfessionalVerificationGuard";
 
 // Layouts
 import { ClientLayout } from "@/layouts/ClientLayout";
 import { ProfessionalLayout } from "@/layouts/ProfessionalLayout";
-// import { AdminLayout } from "@/layouts/AdminLayout"; // futura implementación
-import { AppLayout } from "@/layouts/AdminLayout"; // base para app (theme, estilos globales)
+import  { AdminLayout } from "@/layouts/AdminLayout"; // futura implementación
+import { AppLayout } from "@/layouts/AppLayout"; // base para app (theme, estilos globales)
+import AdminProfile from "@/features/admin/pages/Profile";
+
 
 export default function AppRouter() {
   return (
@@ -60,6 +67,8 @@ export default function AppRouter() {
 
           {/* PROFESSIONAL */}
           <Route element={<RoleGuard allowed={["PROFESSIONAL"]} />}>
+            <Route element={<ProfessionalVerificationGuard />}>
+
             <Route element={<ProfessionalLayout />}>
               <Route path="/professional/dashboard" element={<ProfessionalDashboard />}/>
                <Route path="/professional/Services" element={<ServicesPage />} /> 
@@ -67,17 +76,19 @@ export default function AppRouter() {
                <Route path="/professional/profile" element={<ProfessionalProfile />} /> 
                <Route path="/professional/patients" element={<ProfessionalAppointments />} /> 
             </Route>
+            </Route>
           </Route>
 
           {/* ADMIN (preparado pero comentado) */}
-          {/*
+          
           <Route element={<RoleGuard allowed={["ADMIN"]} />}>
             <Route element={<AdminLayout />}>
               <Route path="/admin/dashboard" element={<AdminDashboard />} />
-              <Route path="/admin/users" element={<AdminUsers />} />
+              <Route path="/admin/users" element={<UserAll />} />
+              <Route path="/admin/profile" element={<AdminProfile />} />
             </Route>
           </Route>
-          */}
+         
         </Route>
       </Route>
       {/* Fallback */}

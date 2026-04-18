@@ -37,12 +37,16 @@ export function ServiceForm({ service, onClose }: Props) {
   const [description, setDescription] = useState(service?.description ?? "");
   const [durationMin, setDurationMin] = useState(service?.durationMin ?? 30);
   const [price, setPrice] = useState<number>(service?.price ?? 0);
-  const [specialtyId, setSpecialtyId] = useState(service?.specialty?.id ?? 0);
+  const [specialtyId, setSpecialtyId] = useState<number | "">("");
   const { data: specialties = [] } = useSpecialtiesByProfessional(
     professionalId!,
   );
 
   const handleSubmit = async (e: React.FormEvent) => {
+
+    if (!specialtyId) {
+      throw new Error("Debes seleccionar una especialidad");
+    }
     e.preventDefault();
     try {
       const payload = {
@@ -50,13 +54,16 @@ export function ServiceForm({ service, onClose }: Props) {
         description: description.trim(),
         durationMin: Number(durationMin),
         price: parseFloat(price.toString()),
-        specialtyId: Number(specialtyId),
+        specialtyId: specialtyId as number,
       };
 
       if (isEdit && service) {
         await updateMutation.mutateAsync({ id: service.id, data: payload });
       } else {
         await createMutation.mutateAsync(payload);
+        setTimeout(() => {
+  onClose();
+}, 0);
       }
 
       onClose();
@@ -65,6 +72,8 @@ export function ServiceForm({ service, onClose }: Props) {
       // aquí puedes mostrar un toast o mensaje de error al usuario
     }
   };
+  const approvedSpecialties =
+    specialties?.filter((s) => s.status === "APPROVED") ?? [];
 
   return (
     <form
@@ -175,12 +184,17 @@ export function ServiceForm({ service, onClose }: Props) {
           <div className="relative">
             <select
               value={specialtyId}
-              onChange={(e) => setSpecialtyId(Number(e.target.value))}
-              className="w-full bg-white/40 dark:bg-black/20 backdrop-blur-md border border-white/50 dark:border-white/10 rounded-2xl px-4 py-4 text-sm font-semibold text-neutral-700 dark:text-neutral-200 outline-none appearance-none cursor-pointer"
+              onChange={(e) =>
+                setSpecialtyId(e.target.value ? Number(e.target.value) : "")
+              }
             >
-              {specialties.map((s) => (
-                <option key={s.id} value={s.id} className="dark:bg-neutral-900">
-                  {s.name}
+              <option value="" disabled>
+                Selecciona una especialidad
+              </option>
+
+              {approvedSpecialties.map((s) => (
+                <option key={s.specialty.id} value={s.specialty.id}>
+                  {s.specialty.name}
                 </option>
               ))}
             </select>

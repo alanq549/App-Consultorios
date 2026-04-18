@@ -5,6 +5,7 @@ import { ProfessionalCertificates } from "@/features/user/professional/professio
 import { ProfessionalSocialLinks } from "@/features/user/professional/professionalSocialLinks";
 
 import { SecuritySection } from "../views/SecuritySection";
+import { ProfessionalSpeciality } from "./professionalSpeciality";
 
 export const ProfessionalProfileLayout = () => {
   return (
@@ -13,6 +14,7 @@ export const ProfessionalProfileLayout = () => {
         <div className="absolute top-0 right-0 w-64 h-64 bg-blue-500/5 rounded-full blur-3xl -mr-20 -mt-20" />
         <div className="relative z-10 p-2">
           <ProfileHeader />
+          <ProfessionalSpeciality/>
         </div>
       </section>
 

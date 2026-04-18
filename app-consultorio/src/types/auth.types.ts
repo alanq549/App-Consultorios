@@ -1,6 +1,6 @@
 // src/types/auth.types.ts
 
-import type { socialLinks  } from "./professional.type";
+import type { socialLinks, Specialty } from "./professional.type";
 
 /* ===== ROLES ===== */
 export type Role = "CLIENT" | "PROFESSIONAL" | "ADMIN";
@@ -27,17 +27,14 @@ interface BaseProfile {
 export type ClientProfile = BaseProfile;
 
 /* PROFESSIONAL */
-export interface Specialty {
-  id: number;
-  name: string;
-  description: string;
-}
+
 
 // agregue lo de certificados y socialLinks
 export interface ProfessionalProfile extends BaseProfile {
   description?: string;
- specialties: Specialty[];
-   socialLinks : socialLinks [];
+  specialties: Specialty[];
+  socialLinks: socialLinks[];
+  verificationStatus: "APPROVED" | "REJECTED" | "PENDING";
   certificates: {
     id: number;
     name: string;

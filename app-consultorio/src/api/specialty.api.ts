@@ -1,5 +1,5 @@
 import api from "./axios";
-import type { Specialty } from "@/types/Specialty.type";
+import type { Specialty, ProfessionalSpecialty } from "@/types/Specialty.type";
 
 export const specialtyApi = {
 
@@ -10,7 +10,7 @@ export const specialtyApi = {
   },
 
   // especialidades del profesional
-  getByProfessional: async (profileId: number): Promise<Specialty[]> => {
+  getByProfessional: async (profileId: number): Promise<ProfessionalSpecialty[]> => {
     const { data } = await api.get(`/specialties/professional/${profileId}`);
     return data;
   },

@@ -1,13 +1,36 @@
-// src/layouts/AppLayout.tsx
+// layouts/ClientLayout.tsx
 import { Outlet } from "react-router-dom";
-import { ThemeProvider } from "@/context/ThemeProvider";
+import { Sidebar } from "./components/Sidebar";
+import { Topbar } from "./components/Topbar";
+import { useAppSelector } from "@/hooks/auth/useRedux";
 
-export const AppLayout = () => {
-  return (
-    <ThemeProvider>
-      <div className="min-h-screen bg-white text-neutral-900 dark:bg-neutral-900 dark:text-white">
-        <Outlet />
+export const AdminLayout = () => {
+  const user = useAppSelector((s) => s.auth.user);
+  const config = useAppSelector((s) => s.config.config);
+
+  if (!user || !config) return <div>Cargando layout...</div>;
+
+  if (config.layout === "TOPBAR") {
+    return (
+      <div className="flex flex-col min-h-screen">
+        <Topbar isStandalone />
+        <main className="flex-1 p-6 overflow-auto">
+          <Outlet />
+        </main>
       </div>
-    </ThemeProvider>
+    );
+  }
+
+  return (
+    <div className="flex min-h-screen">
+      <Sidebar role="ADMIN" />
+      <div className="flex flex-col flex-1">
+        <Topbar />
+        <main className="flex-1 p-6 overflow-auto">
+          <Outlet />
+        </main>
+      </div>
+    </div>
   );
 };
+

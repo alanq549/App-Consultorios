@@ -1,16 +1,16 @@
 // src/modules/users/professionalprofile/professionalprofile.service.ts
 import prisma from "@/core/prisma";
 import { PublicProfessionalProfile } from "./professionalprofile.type";
-import { SpecialtyStatus } from "@prisma/client";
+import { ProfessionalStatus, SpecialtyStatus } from "@prisma/client";
 import {
   UpdateProfessionalProfileDTO,
   CreateCertificateDTO,
   CreateSocialLinkDTO,
   UpdateSocialLinkDTO,
 } from "./professionalprofile.dto";
+import { NotificationService } from "@/modules/notifications/notifications.service";
 
 export class ProfessionalProfileService {
-  
   static async findByUserId(userId: number) {
     return prisma.professionalProfile.findUnique({
       where: { userId },
@@ -22,7 +22,6 @@ export class ProfessionalProfileService {
       where: { userId },
       include: {
         specialties: {
-          where: { status: SpecialtyStatus.APPROVED },
           include: { specialty: true },
         },
         socialLinks: {
@@ -66,6 +65,8 @@ export class ProfessionalProfileService {
         id: ps.specialty.id,
         name: ps.specialty.name,
         description: ps.specialty.description,
+        status: ps.status,
+
       })),
 
       socialLinks: socialLinks.map((link) => ({
@@ -127,9 +128,12 @@ export class ProfessionalProfileService {
     };
   }
 
-  // ✅ NUEVO: listar todos los perfiles públicos
+  // ✅ NUEVO: listar todos los perfiles aprobados con su información pública
   static async getAllPublic(): Promise<PublicProfessionalProfile[]> {
     const profiles = await prisma.professionalProfile.findMany({
+      where: {
+        verificationStatus: "APPROVED",
+      },
       include: {
         specialties: {
           where: { status: SpecialtyStatus.APPROVED },
@@ -154,6 +158,96 @@ export class ProfessionalProfileService {
       })),
     }));
   }
+
+ // listar a todos los perfiles (solo para admin)
+  static async getAllProfiles() {
+  return prisma.professionalProfile.findMany({
+    include: {
+      specialties: {
+        include: { specialty: true },
+      },
+      socialLinks: true,
+    },
+  });
+}
+  /// listar a los perfiles pendientes de aprobación (solo para admin)
+  static async getPendingProfiles() {
+    return prisma.professionalProfile.findMany({
+      where: { verificationStatus: "PENDING" },
+      include: {
+        specialties: {
+          where: { status: SpecialtyStatus.APPROVED },
+          include: { specialty: true },
+        },
+      },
+    });
+  }
+
+  // suspender o reactivar un perfil (solo para admin)
+static async setProfileStatus(
+  profileId: number,
+  newStatus: ProfessionalStatus,
+) {
+  const profile = await prisma.professionalProfile.findUnique({
+    where: { id: profileId },
+  });
+
+  if (!profile) {
+    throw new Error("Perfil profesional no encontrado");
+  }
+
+  const oldStatus = profile.verificationStatus;
+
+  if (oldStatus === newStatus) {
+    return profile;
+  }
+
+  const allowedTransitions: Record<ProfessionalStatus, ProfessionalStatus[]> = {
+    PENDING: ["APPROVED", "REJECTED"],
+    APPROVED: ["SUSPENDED"],
+    SUSPENDED: ["APPROVED"],
+    REJECTED: [],
+  };
+
+  if (!allowedTransitions[oldStatus].includes(newStatus)) {
+    throw new Error(`Transición inválida de ${oldStatus} a ${newStatus}`);
+  }
+
+  if (newStatus === "APPROVED") {
+    const approvedSpecialties = await prisma.professionalSpecialty.count({
+      where: {
+        professionalId: profileId,
+        status: "APPROVED",
+      },
+    });
+
+    if (approvedSpecialties === 0) {
+      throw new Error(
+        "El perfil no puede aprobarse sin al menos una especialidad aprobada"
+      );
+    }
+  }
+
+  const updated = await prisma.professionalProfile.update({
+    where: { id: profileId },
+    data: { verificationStatus: newStatus },
+  });
+
+  // 🔔 NOTIFICACIONES (SIDE EFFECT)
+  if (newStatus === "APPROVED") {
+    await NotificationService.notifyProfileApproved(profile.userId);
+  }
+
+  if (newStatus === "REJECTED") {
+    await NotificationService.notifyProfileRejected(profile.userId);
+  }
+
+  if (newStatus === "SUSPENDED") {
+    await NotificationService.notifyProfileSuspended(profile.userId);
+  }
+
+  return updated;
+}
 
   /// actualizar perfil
   static async updateProfile(
@@ -287,5 +381,37 @@ export class ProfessionalProfileService {
     });
 
     return { message: "Certificado eliminado" };
+  }
+
+  static async reviewProfile(
+    profileId: number,
+    status: "APPROVED" | "REJECTED",
+  ) {
+    const profile = await prisma.professionalProfile.findUnique({
+      where: { id: profileId },
+    });
+
+    if (!profile) {
+      throw new Error("Profile not found");
+    }
+
+    if (profile.verificationStatus === status) {
+      return profile;
+    }
+
+    const updated = await prisma.professionalProfile.update({
+      where: { id: profileId },
+      data: { verificationStatus: status },
+    });
+
+    if (status === "APPROVED") {
+      await NotificationService.notifyProfileApproved(profile.userId);
+    }
+
+    if (status === "REJECTED") {
+      await NotificationService.notifyProfileRejected(profile.userId);
+    }
+
+    return updated;
   }
 }

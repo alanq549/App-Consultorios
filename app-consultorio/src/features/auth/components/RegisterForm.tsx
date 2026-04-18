@@ -1,6 +1,7 @@
 // src/features/auth/components/RegisterForm.tsx
 import { useState } from "react";
 import { useAuthActions } from "@/hooks/auth/useAuthActions";
+import { useSpecialties } from "@/hooks/specialties/useSpecialties";
 
 import type { Role } from "@/types/auth.types";
 import { AxiosError } from "axios";
@@ -22,6 +23,7 @@ export default function RegisterForm() {
   // solo profesional
   const [specialtyId, setSpecialtyId] = useState<number | "">("");
   const [description, setDescription] = useState("");
+  const { data: specialties, isLoading } = useSpecialties();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -87,15 +89,15 @@ export default function RegisterForm() {
   };
   // Estilo común para los inputs
   const inputStyles =
-    "w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition-all placeholder:text-gray-400";
-  const labelStyles = "block text-sm font-semibold text-gray-700 mb-1";
+    "w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition-all placeholder:text-neutral-400";
+  const labelStyles = "block text-sm font-semibold text-neutral-700 mb-1";
   return (
     <div className="max-w-2xl mx-auto bg-white p-8 rounded-2xl shadow-xl border border-gray-100">
       <div className="text-center mb-8">
-        <h2 className="text-3xl font-extrabold text-gray-900">
+        <h2 className="text-3xl font-extrabold text-neutral-900">
           Crea tu cuenta
         </h2>
-        <p className="text-gray-500 mt-2">
+        <p className="text-neutral-500 mt-2">
           Únete a nuestra comunidad hoy mismo
         </p>
       </div>
@@ -121,7 +123,7 @@ export default function RegisterForm() {
       <form onSubmit={handleSubmit} className="space-y-6">
         {/* Sección: Información Personal */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="md:col-span-2">
+          <div className="md:col-span-2 dark:text-neutral-600">
             <label className={labelStyles}>Email</label>
             <input
               type="email"
@@ -133,7 +135,7 @@ export default function RegisterForm() {
             />
           </div>
 
-          <div>
+          <div className="dark:text-neutral-600">
             <label className={labelStyles}>Nombre</label>
             <input
               type="text"
@@ -145,7 +147,7 @@ export default function RegisterForm() {
             />
           </div>
 
-          <div>
+          <div className="dark:text-neutral-600">
             <label className={labelStyles}>Apellido</label>
             <input
               type="text"
@@ -157,7 +159,7 @@ export default function RegisterForm() {
             />
           </div>
 
-          <div>
+          <div className="dark:text-neutral-600">
             <label className={labelStyles}>Contraseña</label>
 
             <div className="relative">
@@ -180,11 +182,11 @@ export default function RegisterForm() {
             </div>
           </div>
 
-          <div>
+          <div className="dark:text-neutral-600">
             <label className={labelStyles}>Teléfono</label>
             <input
               type="tel"
-              placeholder="+56 9..."
+              placeholder="712..."
               value={phone}
               onChange={(e) => setPhone(e.target.value)}
               className={inputStyles}
@@ -198,16 +200,33 @@ export default function RegisterForm() {
           <div className="pt-4 border-t border-gray-100 space-y-4 animate-in fade-in slide-in-from-top-2 duration-300">
             <h3 className="font-bold text-gray-800">Información Profesional</h3>
             <div>
-              <label className={labelStyles}>ID Especialidad</label>
-              <input
-                type="number"
-                value={specialtyId}
-                onChange={(e) => setSpecialtyId(Number(e.target.value))}
-                className={inputStyles}
-                placeholder="Ej: 1"
-              />
+              <div className="dark:text-neutral-600">
+                <label className={labelStyles}>Especialidad</label>
+
+                {isLoading ? (
+                  <p className="text-sm text-gray-500">Cargando especialidades...</p>
+                ) : (
+                  <select
+                    value={specialtyId}
+                    onChange={(e) =>
+                      setSpecialtyId(e.target.value ? Number(e.target.value) : "")
+                    }
+                    className={inputStyles}
+                    required
+                  >
+                    <option value="">Selecciona una especialidad</option>
+
+                    {specialties?.map((specialty) => (
+                      <option key={specialty.id} value={specialty.id}>
+                        {specialty.name}
+                      </option>
+                    ))}
+                  </select>
+                )}
+              </div>
+
             </div>
-            <div>
+            <div className="dark:text-neutral-600">
               <label className={labelStyles}>Descripción / Bio</label>
               <textarea
                 rows={3}

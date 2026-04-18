@@ -24,6 +24,11 @@ export class ProfessionalProfileController {
           message: "Perfil profesional no encontrado",
         });
       }
+      if (profile.verificationStatus !== "APPROVED") {
+        return res.status(403).json({
+          message: "Perfil profesional no aprobado",
+        });
+      }
 
       res.json(profile);
     } catch (err) {
