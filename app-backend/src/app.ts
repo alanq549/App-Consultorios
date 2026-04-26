@@ -11,6 +11,7 @@ import schedulesRoutes from "./modules/schedule/schedule.routes";
 import notificationRoutes from "@/modules/notifications/notifications.routes";
 import SpecialtyRoutes  from "./modules/specialty/specialty.routes";
 import AdminRoutes from "@/modules/admin/admin.routes"
+import  ReviewsRoutes from "@/modules/reviews/reviews.routes" 
 import path from "path";
 
 import "express-async-errors";
@@ -40,7 +41,7 @@ app.use("/api/professionals", professionalProfileRoutes);
 app.use("/api/services", serviceRoutes);
 app.use("/api/schedules", schedulesRoutes);
 app.use("/api/notifications", notificationRoutes);
-
+app.use("/api/reviews", ReviewsRoutes);
 // siempre al final:
 app.use(errorHandler);
 

@@ -40,105 +40,104 @@ new Worker(
 console.log("🟢 Worker de citas iniciado, escuchando jobs...");
  */
 
+
+function buildUTCDate(baseDate: Date, minutes: number) {
+  const utc = Date.UTC(
+    baseDate.getUTCFullYear(),
+    baseDate.getUTCMonth(),
+    baseDate.getUTCDate(),
+    0,
+    minutes,
+    0,
+    0
+  )
+
+  return new Date(utc)
+}
 // Cron job para revisar citas cada minuto
 cron.schedule("* * * * *", async () => {
-  const now = new Date();
-  let changes = 0;
 
-  // 🔹 Inicio y fin del día en UTC
-  const startOfToday = new Date(
-    Date.UTC(
-      now.getUTCFullYear(),
-      now.getUTCMonth(),
-      now.getUTCDate(),
-      0,
-      0,
-      0,
-      0,
-    ),
-  );
-
-  const endOfToday = new Date(
-    Date.UTC(
-      now.getUTCFullYear(),
-      now.getUTCMonth(),
-      now.getUTCDate() + 1,
-      0,
-      0,
-      0,
-      0,
-    ),
-  );
+  const now = Date.now()
+  let changes = 0
 
   const appointments = await prisma.appointment.findMany({
     where: {
       status: { in: ["PENDING", "CONFIRMED"] },
-      date: {
-        gte: startOfToday,
-        lt: endOfToday,
-      },
     },
     include: {
       clientProfile: true,
       professional: true,
     },
-  });
+  })
 
   for (const appointment of appointments) {
-    const startDateTime = new Date(appointment.date);
-    startDateTime.setMinutes(appointment.startMin);
 
-    const endDateTime = new Date(appointment.date);
-    endDateTime.setMinutes(appointment.endMin);
+    const startDateTime = buildUTCDate(
+      appointment.date,
+      appointment.startMin
+    )
 
-    // 🔴 Cancelar si no fue confirmada
-    if (appointment.status === "PENDING" && startDateTime <= now) {
+    const endDateTime = buildUTCDate(
+      appointment.date,
+      appointment.endMin
+    )
+
+    const start = startDateTime.getTime()
+    const end = endDateTime.getTime()
+
+    // 🔴 cancelar si nunca se confirmó
+    if (appointment.status === "PENDING" && start <= now) {
+
       await prisma.appointment.update({
         where: { id: appointment.id },
         data: { status: "CANCELLED" },
-      });
+      })
 
       if (appointment.clientProfile) {
         await NotificationService.notifyAppointmentCancelled(
           appointment.clientProfile.userId,
           appointment.professional.userId,
           appointment.id,
-          "SYSTEM",
-        );
+          "SYSTEM"
+        )
       }
-      console.log(
-        `🔴 Cita #${appointment.id} cancelada (inicio: ${startDateTime.toISOString()})`,
-      );
 
-      changes++;
-      continue;
+      console.log(
+        `🔴 Cita #${appointment.id} cancelada`,
+        startDateTime.toISOString()
+      )
+
+      changes++
+      continue
     }
 
-    // 🟢 Completar si terminó
-    if (appointment.status === "CONFIRMED" && endDateTime <= now) {
+    // 🟢 completar si terminó
+    if (appointment.status === "CONFIRMED" && end <= now) {
+
       await prisma.appointment.update({
         where: { id: appointment.id },
         data: { status: "COMPLETED" },
-      });
+      })
 
       if (appointment.clientProfile) {
         await NotificationService.notifyAppointmentCompleted(
           appointment.clientProfile.userId,
           appointment.professional.userId,
-          appointment.id,
-        );
+          appointment.id
+        )
       }
 
       console.log(
-        `🟢 Cita #${appointment.id} completada (fin: ${endDateTime.toISOString()})`,
-      );
+        `🟢 Cita #${appointment.id} completada`,
+        endDateTime.toISOString()
+      )
 
-      changes++;
+      changes++
     }
   }
 
-  // Solo log si hubo cambios
   if (changes > 0) {
-    console.log(`✅ ${changes} cita(s) procesadas a las ${now.toISOString()}`);
+    console.log(`✅ ${changes} citas procesadas`)
   }
-});
+
+})

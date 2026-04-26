@@ -1,4 +1,13 @@
 //src/utils/time.ts
+
+function formatLocalDate(date: Date) {
+  const y = date.getFullYear()
+  const m = String(date.getMonth() + 1).padStart(2, "0")
+  const d = String(date.getDate()).padStart(2, "0")
+
+  return `${y}-${m}-${d}`
+}
+
 export function timeToMinutes(time: string) {
   const [h, m] = time.split(":").map(Number);
   return h * 60 + m;
@@ -49,7 +58,7 @@ export function generateNextDays(count = 7) {
     d.setDate(d.getDate() + i)
 
     days.push({
-      date: d.toISOString().split("T")[0],
+      date: formatLocalDate(d),
       label: d.toLocaleDateString("es-MX", {
         weekday: "long",
         day: "numeric",

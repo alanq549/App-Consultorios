@@ -81,6 +81,15 @@ export class NotificationService {
       appointmentId,
     );
   }
+  static async notifyReview(professionalId: number, appointmentId: number) {
+    return this.createNotification(
+      professionalId,
+      NotificationType.REVIEW_REQUEST,
+      "¡Te dejaron una reseña!",
+      "Un cliente valoró tu servicio.",
+      appointmentId,
+    );
+  }
 
   static async notifyAppointmentConfirmed(
     clientUserId: number,

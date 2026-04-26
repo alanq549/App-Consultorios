@@ -7,12 +7,11 @@ export interface Service {
   durationMin: number;
   price: number;
   isActive: boolean;
-
   specialty: Specialty;
-
 profileId: number;
   createdAt: string;
   updatedAt: string;
+  status?: string;
 }
 
 export interface CreateServiceDTO {

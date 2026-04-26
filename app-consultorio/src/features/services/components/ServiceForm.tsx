@@ -73,7 +73,7 @@ export function ServiceForm({ service, onClose }: Props) {
     }
   };
   const approvedSpecialties =
-    specialties?.filter((s) => s.status === "APPROVED") ?? [];
+    specialties?.filter((s: Service) => s.status === "APPROVED") ?? [];
 
   return (
     <form
@@ -192,7 +192,7 @@ export function ServiceForm({ service, onClose }: Props) {
                 Selecciona una especialidad
               </option>
 
-              {approvedSpecialties.map((s) => (
+              {approvedSpecialties.map((s: Service) => (
                 <option key={s.specialty.id} value={s.specialty.id}>
                   {s.specialty.name}
                 </option>

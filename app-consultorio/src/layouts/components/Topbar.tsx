@@ -27,7 +27,7 @@ const menuItems = {
   ADMIN: [
     { label: "Dashboard", path: "/admin/dashboard", icon: LayoutDashboard },
     { label: "Usuarios", path: "/admin/users", icon: Users },
-    { label: "Configuración", path: "/admin/config", icon: Settings },
+      { label: "Especialidades", path: "/admin/Specialties", icon: Settings },
   ],
 };
 

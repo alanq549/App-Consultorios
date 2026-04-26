@@ -23,6 +23,8 @@ import SchedulesPage from "@/features/schedules/pages/schedulesPages";
 //admin
 import AdminDashboard from "@/features/admin/pages/AdminDashboard";
 import UserAll from "@/features/admin/pages/UserAll";
+import AdminProfile from "@/features/admin/pages/Profile";
+import SpecialtiesPage from "@/features/admin/pages/SpecialtiesPage";
 
 import { ProtectedRoute } from "./ProtectedRoute";
 import { RoleGuard } from "./RoleGuard";
@@ -33,7 +35,6 @@ import { ClientLayout } from "@/layouts/ClientLayout";
 import { ProfessionalLayout } from "@/layouts/ProfessionalLayout";
 import  { AdminLayout } from "@/layouts/AdminLayout"; // futura implementación
 import { AppLayout } from "@/layouts/AppLayout"; // base para app (theme, estilos globales)
-import AdminProfile from "@/features/admin/pages/Profile";
 
 
 export default function AppRouter() {
@@ -86,6 +87,7 @@ export default function AppRouter() {
               <Route path="/admin/dashboard" element={<AdminDashboard />} />
               <Route path="/admin/users" element={<UserAll />} />
               <Route path="/admin/profile" element={<AdminProfile />} />
+              <Route path="/admin/Specialties" element={< SpecialtiesPage/>} />
             </Route>
           </Route>
          

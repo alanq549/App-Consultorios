@@ -367,7 +367,9 @@ export class AppointmentService {
     if (!where.OR) return []; // usuario sin citas
 
     const appointments = await prisma.appointment.findMany({
-      where,
+      where: {
+        OR: [{ clientProfile: { userId } }, { professional: { userId } }],
+      },
       include: {
         service: true,
         professional: {
@@ -381,6 +383,7 @@ export class AppointmentService {
         },
         clientProfile: { include: { user: true } },
         guest: true,
+        review: true,
       },
       orderBy: { date: "desc" },
     });

@@ -8,8 +8,15 @@ export class SpecialtyService {
       where: { name: data.name },
     });
 
-    if (exists) {
+    if (exists && exists.isActive) {
       throw new Error("La especialidad ya existe");
+    }
+
+    if (exists && !exists.isActive) {
+      return prisma.specialty.update({
+        where: { id: exists.id },
+        data: { ...data, isActive: true },
+      });
     }
 
     return prisma.specialty.create({
@@ -24,19 +31,26 @@ export class SpecialtyService {
     });
   }
 
-static async listByProfessional(profileId: number) {
-  return prisma.professionalSpecialty.findMany({
-    where: {
-      professionalId: profileId,
-      specialty: {
-        isActive: true,
+  static async list_soft_delete() {
+    return prisma.specialty.findMany({
+      where: { isActive: false },
+      orderBy: { name: "asc" },
+    });
+  }
+
+  static async listByProfessional(profileId: number) {
+    return prisma.professionalSpecialty.findMany({
+      where: {
+        professionalId: profileId,
+        specialty: {
+          isActive: true,
+        },
       },
-    },
-    include: {
-      specialty: true,
-    },
-  });
-}
+      include: {
+        specialty: true,
+      },
+    });
+  }
 
   static async update(id: number, data: UpdateSpecialtyDTO) {
     const specialty = await prisma.specialty.findUnique({
@@ -50,6 +64,13 @@ static async listByProfessional(profileId: number) {
     return prisma.specialty.update({
       where: { id },
       data,
+    });
+  }
+
+  static async restore(id: number) {
+    return prisma.specialty.update({
+      where: { id },
+      data: { isActive: true },
     });
   }
 

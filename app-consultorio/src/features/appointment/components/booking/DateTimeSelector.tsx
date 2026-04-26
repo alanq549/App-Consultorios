@@ -61,7 +61,10 @@ export function DateTimeSelector({ professionalId, service, onSelect }: Props) {
                 </span>
                 <span className="text-sm font-bold mt-0.5">
                   {d.date ?? d.label}
+
                 </span>
+
+
               </button>
             );
           })}
