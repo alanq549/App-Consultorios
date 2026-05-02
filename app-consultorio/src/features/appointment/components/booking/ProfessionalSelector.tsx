@@ -23,6 +23,8 @@ export function ProfessionalSelector({ value }: Props) {
   const avatarUrl = (p: BookingProfessional) =>
     p.avatar ? `${staticbackend}${p.avatar}` : "/imgs/image.png";
 
+  console.log("Professionals: ", professionals);
+
   if (isLoading) {
     return (
       <div className="grid grid-cols-2 md:grid-cols-3 gap-4">

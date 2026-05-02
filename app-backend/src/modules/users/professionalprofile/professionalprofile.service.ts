@@ -140,6 +140,7 @@ export class ProfessionalProfileService {
           include: { specialty: true },
         },
         socialLinks: true,
+        
       },
     });
 
@@ -151,6 +152,8 @@ export class ProfessionalProfileService {
       description: profile.description,
       socialLinks: profile.socialLinks,
       verificationStatus: profile.verificationStatus,
+      ratingAvg: profile.ratingAvg,
+  ratingCount: profile.ratingCount,
       specialties: profile.specialties.map((ps) => ({
         id: ps.specialty.id,
         name: ps.specialty.name,

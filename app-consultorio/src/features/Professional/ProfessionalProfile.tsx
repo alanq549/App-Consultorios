@@ -12,6 +12,7 @@ import {
 import { staticbackend } from "@/config/variables";
 import type { Professional } from "@/types/professional.type";
 import { RatingStars } from "@/components/ui/RatingStars";
+import { useProfessionalReviews } from "@/hooks/reviews/useProfessionalReviews";
 
 type Props = {
   professional: Professional;
@@ -65,7 +66,9 @@ const getSocialConfig = (type: string) => {
 };
 export function ProfessionalProfile({ professional }: Props) {
 
-  console.log("Especialidades: ", professional.specialties);
+
+  const { data: reviews, isLoading, error } = useProfessionalReviews(professional.id);
+
 
 
 
@@ -229,7 +232,7 @@ export function ProfessionalProfile({ professional }: Props) {
                 );
               })}
             </div>
-            
+
           </div>
         )}
 
@@ -283,6 +286,47 @@ export function ProfessionalProfile({ professional }: Props) {
             </div>
           </div>
         )}
+
+
+        {/* REVIEWS */}
+<div className="w-full mt-6 space-y-3">
+  <p className="text-[11px] font-bold text-slate-700 dark:text-neutral-400 uppercase tracking-wider">
+    Reseñas
+  </p>
+
+  {isLoading && (
+    <p className="text-sm text-gray-400">Cargando reseñas...</p>
+  )}
+
+  {error && (
+    <p className="text-sm text-red-500">Error al cargar reseñas</p>
+  )}
+
+  {reviews && reviews.length === 0 && (
+    <p className="text-sm text-gray-400">Sin reseñas aún</p>
+  )}
+
+  {reviews?.map((review) => (
+    <div
+      key={review.id}
+      className="p-3 rounded-xl border bg-white dark:bg-neutral-900"
+    >
+      <div className="flex items-center justify-between mb-1">
+        <p className="text-sm font-semibold">
+          {review.appointment.clientProfile?.name || "Usuario"}
+        </p>
+
+        <RatingStars rating={review.rating} />
+      </div>
+
+      {review.comment && (
+        <p className="text-xs text-gray-600 dark:text-gray-400">
+          {review.comment}
+        </p>
+      )}
+    </div>
+  ))}
+</div>
       </div>
     </div>
 

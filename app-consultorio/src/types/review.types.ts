@@ -5,8 +5,9 @@ export interface Review {
   comment?: string;
   createdAt: string;
 
-  client: {
+ appointment: {
+  clientProfile: {
     name: string;
-    lastName?: string;
   };
+};
 }
