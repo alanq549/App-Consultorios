@@ -23,6 +23,8 @@ WORKDIR /app
 # Copiar el build compilado
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/public ./public
+
 
 # Copiar Prisma generado al mismo path relativo dentro de dist
 #COPY --from=builder /app/src/core/lib/prisma/generated ./dist/core/lib/prisma/generated

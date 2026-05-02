@@ -1,11 +1,18 @@
-/// src/core/storage/upload.ts
+import fs from "node:fs";
 import multer, { MulterError } from "multer";
 import path from "node:path";
 
 export function createUploader(folder: string) {
+  const uploadPath = path.join(process.cwd(), "public", folder);
+
+  // 👇 asegurar que la carpeta exista SIEMPRE
+  if (!fs.existsSync(uploadPath)) {
+    fs.mkdirSync(uploadPath, { recursive: true });
+  }
+
   const storage = multer.diskStorage({
     destination: function (_req, _file, cb) {
-      cb(null, path.join(process.cwd(), "public", folder));
+      cb(null, uploadPath);
     },
     filename: function (_req, file, cb) {
       const safeName = file.originalname.replace(/\s+/g, "-").toLowerCase();
