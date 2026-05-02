@@ -1,10 +1,8 @@
 import { Link } from "react-router-dom";
-import {staticbackend} from "@/config/variables";
 
 
 export default function Home() {
-  console.log("staticbackend: ", staticbackend)
-  console.log("env: ", import.meta.env.VITE_BACKEND_URL)
+
   return (
     <div className="min-h-screen bg-linear-to-br from-blue-50 to-indigo-100">
       <nav className="bg-white shadow">
@@ -21,7 +19,6 @@ export default function Home() {
           </div>
         </div>
       </nav>
-      <p>{staticbackend}</p>
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         <section className="text-center mb-12">
