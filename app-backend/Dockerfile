@@ -9,8 +9,7 @@ RUN npm install
 # Copiar todo el código
 COPY . .
 
-ARG DATABASE_URL
-ENV DATABASE_URL=$DATABASE_URL
+
 # Generar Prisma en src/core/lib/prisma/generated
 RUN npx prisma generate --schema=./prisma/schema.prisma
 

@@ -20,7 +20,7 @@ const app = express();
 
 // 🔹 CORS aquí
 app.use(cors({
-  origin: "http://localhost:5173", // frontend
+  origin: process.env.FRONTEND_URL, // frontend
   credentials: true,               // si envías cookies
 }));
 
