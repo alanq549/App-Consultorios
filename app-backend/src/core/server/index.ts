@@ -9,6 +9,7 @@ export const startServer = async () => {
 
   app.listen(PORT, () => {
     console.log(`🚀 Servidor corriendo en http://localhost:${PORT}`);
+    console.log("front: " + process.env.FRONTEND_URL);
   });
 
 };
