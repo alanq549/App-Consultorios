@@ -4,6 +4,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.authMiddleware = authMiddleware;
+exports.authorizeRole = authorizeRole;
 const jsonwebtoken_1 = __importDefault(require("jsonwebtoken"));
 const JWT_SECRET = process.env.JWT_SECRET;
 function authMiddleware(req, res, next) {
@@ -23,4 +24,15 @@ function authMiddleware(req, res, next) {
     catch {
         return res.status(401).json({ message: "Token inválido o expirado" });
     }
+}
+function authorizeRole(...allowedRoles) {
+    return (req, res, next) => {
+        if (!req.user) {
+            return res.status(401).json({ message: "No autenticado" });
+        }
+        if (!allowedRoles.includes(req.user.role)) {
+            return res.status(403).json({ message: "No autorizado" });
+        }
+        next();
+    };
 }

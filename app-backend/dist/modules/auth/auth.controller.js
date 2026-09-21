@@ -3,7 +3,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.AuthController = void 0;
 const auth_service_1 = require("./auth.service");
 const auth_dto_1 = require("./auth.dto");
-const AppError_1 = require("@/core/errors/AppError");
+const AppError_1 = require("../../core/errors/AppError");
 class AuthController {
     static async register(req, res, next) {
         try {

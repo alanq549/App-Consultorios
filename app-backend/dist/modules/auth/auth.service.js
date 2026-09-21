@@ -6,12 +6,13 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.AuthService = void 0;
 const bcrypt_1 = __importDefault(require("bcrypt"));
 const crypto_1 = __importDefault(require("crypto"));
-const prisma_1 = __importDefault(require("@/core/prisma"));
+const prisma_1 = __importDefault(require("../../core/prisma"));
 const auth_tokens_1 = require("./auth.tokens");
 const client_1 = require("@prisma/client");
 const auth_mail_1 = require("./auth.mail");
-const media_1 = require("@/core/config/media");
-const AppError_1 = require("@/core/errors/AppError");
+const media_1 = require("../../core/config/media");
+const AppError_1 = require("../../core/errors/AppError");
+const notifications_service_1 = require("../notifications/notifications.service");
 function generateRefreshToken() {
     return crypto_1.default.randomBytes(64).toString("hex");
 }
@@ -19,6 +20,7 @@ function hashToken(token) {
     return crypto_1.default.createHash("sha256").update(token).digest("hex");
 }
 class AuthService {
+    // registro con creación de perfil y envío de email de verificación
     static async register(data) {
         const { email, password, role, profile } = data;
         const hashed = await bcrypt_1.default.hash(password, 10);
@@ -53,8 +55,13 @@ class AuthService {
                             lastName: profile.lastName,
                             phone: profile.phone,
                             avatar: media_1.DEFAULT_AVATAR,
-                            specialtyId: profile.specialtyId,
                             description: profile.description ?? "",
+                            specialties: {
+                                create: {
+                                    specialtyId: profile.specialtyId,
+                                    status: "PENDING", // o APPROVED si decides
+                                },
+                            },
                         },
                     });
                 }
@@ -73,11 +80,19 @@ class AuthService {
                 });
                 return { user, token };
             });
+            /// enviar email de verificación (token plano, no hash)
             try {
                 await (0, auth_mail_1.sendVerificationEmail)(user.email, token);
             }
             catch (err) {
                 console.error("Error enviando email:", err);
+            }
+            // Crear notificación de bienvenida (fuera de la transacción principal)
+            try {
+                await notifications_service_1.NotificationService.notifyWelcome(user.id);
+            }
+            catch (err) {
+                console.error("Error creando notificación de bienvenida:", err);
             }
             return user;
         }
@@ -89,16 +104,25 @@ class AuthService {
             throw err;
         }
     }
+    //login con validacion de usario, contrasena y verificacion de cuenta y generacion de tokens
     static async login(email, password) {
+        // Buscar usuario
         const user = await prisma_1.default.user.findUnique({ where: { email } });
-        if (!user)
+        // Validaciones con log
+        if (!user) {
+            console.log("Usuario no encontrado:", email);
             throw new Error("Credenciales inválidas");
+        }
         const valid = await bcrypt_1.default.compare(password, user.password);
-        if (!valid)
+        if (!valid) {
+            console.log("Contraseña inválida para:", email);
             throw new Error("Credenciales inválidas");
+        }
         if (!user.isVerified) {
+            console.log("Cuenta no verificada para:", email);
             throw new Error("Cuenta no verificada");
         }
+        // Generar tokens
         const accessToken = (0, auth_tokens_1.generateToken)({
             userId: user.id,
             role: user.role,
@@ -108,7 +132,7 @@ class AuthService {
         await prisma_1.default.refreshToken.create({
             data: {
                 userId: user.id,
-                token: refreshTokenHash, // 👈 HASH
+                token: refreshTokenHash,
                 expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
             },
         });
@@ -123,6 +147,7 @@ class AuthService {
             },
         };
     }
+    // verificacion de la cuenta por token
     static async verifyByToken(token) {
         const tokenHash = crypto_1.default.createHash("sha256").update(token).digest("hex");
         const attempt = await prisma_1.default.verificationAttempt.findFirst({
@@ -216,6 +241,7 @@ class AuthService {
             refreshToken: newRefreshToken,
         };
     }
+    // olvide  la contrasena:
     static async forgotPassword(email) {
         const user = await prisma_1.default.user.findUnique({ where: { email } });
         if (!user)
@@ -229,8 +255,10 @@ class AuthService {
                 expiresAt: new Date(Date.now() + 15 * 60 * 1000),
             },
         });
-        await (0, auth_mail_1.sendResetPasswordEmail)(email, token); // token plano SOLO por email
+        const resetUrl = `${process.env.FRONTEND_URL}/reset-password?token=${token}`;
+        await (0, auth_mail_1.sendResetPasswordEmail)(email, resetUrl);
     }
+    // restablecer la contrasena con token
     static async resetPassword(token, newPassword) {
         const tokenHash = crypto_1.default.createHash("sha256").update(token).digest("hex");
         const reset = await prisma_1.default.passwordReset.findFirst({
@@ -252,6 +280,10 @@ class AuthService {
             prisma_1.default.passwordReset.update({
                 where: { id: reset.id },
                 data: { isUsed: true },
+            }),
+            prisma_1.default.refreshToken.updateMany({
+                where: { userId: reset.userId },
+                data: { isRevoked: true },
             }),
         ]);
     }

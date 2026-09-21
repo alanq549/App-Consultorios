@@ -32,15 +32,23 @@ async function sendVerificationEmail(email, token) {
     `,
     });
 }
-async function sendResetPasswordEmail(email, code) {
+async function sendResetPasswordEmail(email, resetUrl) {
     await transporter.sendMail({
         from: MAIL_FROM,
         to: email,
         subject: "Restablecer contraseña",
         html: `
-      <p>Tu código para restablecer contraseña es:</p>
-      <h1>${code}</h1>
-      <p>Expira en 10 minutos.</p>
+      <h2>Restablecer contraseña</h2>
+
+      <p>Haz clic en el siguiente enlace para crear una nueva contraseña:</p>
+
+      <a href="${resetUrl}">
+        Restablecer contraseña
+      </a>
+
+      <p>Este enlace expira en 15 minutos.</p>
+
+      <p>Si no solicitaste este cambio, ignora este correo.</p>
     `,
     });
 }

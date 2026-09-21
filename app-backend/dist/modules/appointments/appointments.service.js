@@ -5,17 +5,19 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.AppointmentService = void 0;
 // appointments.service.ts
-const prisma_1 = __importDefault(require("@/core/prisma"));
+const prisma_1 = __importDefault(require("../../core/prisma"));
 const availability_util_1 = require("./availability.util");
+/* import { appointmentQueue } from "./appointment.worker"; */
+const notifications_service_1 = require("../notifications/notifications.service");
 class AppointmentService {
-    //  Crear cita con toda la info lista para frontend
+    // Crear cita con clientProfile
     static async create(clientProfileId, data) {
         const service = await this.getServiceById(data.serviceId, data.professionalProfileId);
         const endMin = data.startMin + service.durationMin;
-        const appointmentDate = new Date(data.date + "T00:00:00Z");
+        const appointmentDate = new Date(data.date + "T00:00:00");
         const now = new Date();
         const appointmentDateTime = new Date(appointmentDate);
-        appointmentDateTime.setUTCMinutes(data.startMin);
+        appointmentDateTime.setMinutes(data.startMin);
         if (appointmentDateTime <= now) {
             throw new Error("No puedes crear citas en el pasado");
         }
@@ -36,71 +38,35 @@ class AppointmentService {
                 professional: {
                     include: {
                         user: true,
-                        specialty: true,
+                        specialties: {
+                            where: { status: "APPROVED" },
+                            include: { specialty: true },
+                        },
                     },
                 },
                 clientProfile: { include: { user: true } },
             },
         });
-        //  Transformamos la respuesta para frontend
-        return {
-            id: appointment.id,
-            date: appointment.date.toISOString(),
-            startMin: appointment.startMin,
-            endMin: appointment.endMin,
-            notes: appointment.notes,
-            status: appointment.status,
-            service: {
-                id: appointment.service.id,
-                name: appointment.service.name,
-                description: appointment.service.description,
-                durationMin: appointment.service.durationMin,
-                price: Number(appointment.service.price),
-            },
-            professional: {
-                id: appointment.professional.id,
-                name: appointment.professional.name,
-                lastName: appointment.professional.lastName,
-                phone: appointment.professional.phone,
-                avatar: appointment.professional.avatar,
-                specialty: appointment.professional.specialty
-                    ? {
-                        id: appointment.professional.specialty.id,
-                        name: appointment.professional.specialty.name,
-                    }
-                    : null,
-                user: {
-                    id: appointment.professional.user.id,
-                    email: appointment.professional.user.email,
-                },
-            },
-            client: appointment.clientProfile
-                ? {
-                    id: appointment.clientProfile.id,
-                    name: appointment.clientProfile.name,
-                    lastName: appointment.clientProfile.lastName,
-                    user: {
-                        id: appointment.clientProfile.user.id,
-                        email: appointment.clientProfile.user.email,
-                    },
-                }
-                : null,
-        };
+        if (!appointment.clientProfile) {
+            throw new Error("No se pudo crear la notificación: clientProfile faltante");
+        }
+        await notifications_service_1.NotificationService.notifyAppointmentCreated(appointment.clientProfile.userId, appointment.professional.userId, appointment.id);
+        return this.mapToDTO(appointment);
     }
-    // Crear cita para guest (sin user ni clientProfile) esto para clientes sin cuenta y ocacionales, estas las crean profesionales
+    // Crear cita para guest
     static async createGuest(professionalProfileId, data) {
-        const service = await this.getServiceById(data.serviceId, data.professionalProfileId);
+        const service = await this.getServiceById(data.serviceId, professionalProfileId);
         const endMin = data.startMin + service.durationMin;
         const appointmentDate = new Date(data.date + "T00:00:00Z");
         const now = new Date();
         const appointmentDateTime = new Date(appointmentDate);
-        appointmentDateTime.setUTCMinutes(data.startMin);
+        appointmentDateTime.setMinutes(data.startMin);
         if (appointmentDateTime <= now) {
             throw new Error("No puedes crear citas en el pasado");
         }
         await this.validateSchedule(professionalProfileId, appointmentDate, data.startMin, endMin);
         await this.validateOverlap(professionalProfileId, appointmentDate, data.startMin, endMin);
-        // Crear o buscar guest client
+        // Buscar o crear guest
         let guest = await prisma_1.default.guestClient.findFirst({
             where: { email: data.guestEmail || undefined, name: data.guestName },
         });
@@ -125,179 +91,100 @@ class AppointmentService {
             },
             include: {
                 service: true,
-                professional: { include: { user: true, specialty: true } },
+                professional: {
+                    include: {
+                        user: true,
+                        specialties: {
+                            where: { status: "APPROVED" },
+                            include: { specialty: true },
+                        },
+                    },
+                },
                 guest: true,
             },
         });
-        return {
-            id: appointment.id,
-            date: appointment.date.toISOString(),
-            startMin: appointment.startMin,
-            endMin: appointment.endMin,
-            notes: appointment.notes,
-            status: appointment.status,
-            service: {
-                id: appointment.service.id,
-                name: appointment.service.name,
-                description: appointment.service.description,
-                durationMin: appointment.service.durationMin,
-                price: Number(appointment.service.price),
-            },
-            professional: {
-                id: appointment.professional.id,
-                name: appointment.professional.name,
-                lastName: appointment.professional.lastName,
-                phone: appointment.professional.phone,
-                avatar: appointment.professional.avatar,
-                specialty: appointment.professional.specialty
-                    ? {
-                        id: appointment.professional.specialty.id,
-                        name: appointment.professional.specialty.name,
-                    }
-                    : null,
-                user: {
-                    id: appointment.professional.user.id,
-                    email: appointment.professional.user.email,
-                },
-            },
-            client: appointment.guest
-                ? {
-                    id: appointment.guest.id,
-                    name: appointment.guest.name,
-                    lastName: null,
-                    user: { id: 0, email: appointment.guest.email || "" }, // Front puede ignorar id de user
-                }
-                : null,
-        };
+        return this.mapToDTO(appointment, true);
     }
-    // Obtener slots disponibles para un profesional, servicio y día específico
-    static async getAvailability(professionalProfileId, serviceId, startOfDay, endOfDay) {
-        const now = new Date();
-        // Si el día ya pasó completamente
-        if (endOfDay <= now) {
-            return [];
-        }
-        const service = await this.getServiceById(serviceId, professionalProfileId);
-        const jsDay = startOfDay.getUTCDay();
-        const dayOfWeek = jsDay === 0 ? 7 : jsDay;
-        const schedules = await prisma_1.default.schedule.findMany({
-            where: {
-                profileId: professionalProfileId,
-                dayOfWeek,
-                isActive: true,
-            },
-            select: {
-                startMin: true,
-                endMin: true,
-            },
-        });
-        const appointments = await prisma_1.default.appointment.findMany({
-            where: {
-                professionalProfileId,
-                date: {
-                    gte: startOfDay,
-                    lt: endOfDay,
-                },
-                status: { not: "CANCELLED" },
-            },
-            select: {
-                startMin: true,
-                endMin: true,
-            },
-        });
-        const slots = (0, availability_util_1.generateAvailabilitySlots)({
-            schedules,
-            appointments,
-            serviceDuration: service.durationMin,
-        });
-        // Si es hoy, eliminar horarios pasados
-        const isToday = startOfDay <= now && endOfDay > now;
-        if (isToday) {
-            const currentMinutes = now.getUTCHours() * 60 + now.getUTCMinutes();
-            return slots.filter((slot) => slot.startMin > currentMinutes);
-        }
-        return slots;
-    }
-    // Obtener todas las citas de un usuario (cliente o profesional)
-    static async getAppointmentsByUser(userId) {
-        // Revisar si es cliente
-        const clientProfile = await prisma_1.default.clientProfile.findUnique({
-            where: { userId },
-        });
+    // Actualizar estado por profesional
+    static async updateStatusByProfessional(professionalUserId, appointmentId, status) {
         const professionalProfile = await prisma_1.default.professionalProfile.findUnique({
-            where: { userId },
+            where: { userId: professionalUserId },
         });
-        const where = {};
-        if (clientProfile) {
-            where.OR = [{ clientProfileId: clientProfile.id }];
-        }
-        if (professionalProfile) {
-            where.OR = where.OR
-                ? [...where.OR, { professionalProfileId: professionalProfile.id }]
-                : [{ professionalProfileId: professionalProfile.id }];
-        }
-        if (!where.OR)
-            return []; // usuario sin citas
-        const appointments = await prisma_1.default.appointment.findMany({
-            where,
+        if (!professionalProfile)
+            throw new Error("Profesional no encontrado");
+        const appointment = await prisma_1.default.appointment.findUnique({
+            where: { id: appointmentId },
             include: {
                 service: true,
-                professional: { include: { user: true, specialty: true } },
+                professional: {
+                    include: {
+                        user: true,
+                        specialties: {
+                            where: { status: "APPROVED" },
+                            include: { specialty: true },
+                        },
+                    },
+                },
                 clientProfile: { include: { user: true } },
                 guest: true,
             },
-            orderBy: { date: "desc" },
         });
-        return appointments.map((appt) => ({
-            id: appt.id,
-            date: appt.date.toISOString().split("T")[0],
-            startMin: appt.startMin,
-            endMin: appt.endMin,
-            notes: appt.notes,
-            status: appt.status,
-            service: {
-                id: appt.service.id,
-                name: appt.service.name,
-                description: appt.service.description,
-                durationMin: appt.service.durationMin,
-                price: Number(appt.service.price),
-            },
-            professional: {
-                id: appt.professional.id,
-                name: appt.professional.name,
-                lastName: appt.professional.lastName,
-                phone: appt.professional.phone,
-                avatar: appt.professional.avatar,
-                specialty: appt.professional.specialty
-                    ? {
-                        id: appt.professional.specialty.id,
-                        name: appt.professional.specialty.name,
-                    }
-                    : null,
-                user: {
-                    id: appt.professional.user.id,
-                    email: appt.professional.user.email,
-                },
-            },
-            client: appt.clientProfile
-                ? {
-                    id: appt.clientProfile.id,
-                    name: appt.clientProfile.name,
-                    lastName: appt.clientProfile.lastName,
-                    user: {
-                        id: appt.clientProfile.user.id,
-                        email: appt.clientProfile.user.email,
+        if (!appointment)
+            throw new Error("Cita no encontrada");
+        if (appointment.professionalProfileId !== professionalProfile.id) {
+            throw new Error("No autorizado");
+        }
+        const validTransitions = {
+            PENDING: ["CONFIRMED", "CANCELLED"],
+            CONFIRMED: ["CANCELLED"],
+        };
+        if (!validTransitions[appointment.status]?.includes(status)) {
+            throw new Error(`No se puede pasar de ${appointment.status} a ${status}`);
+        }
+        if (status === "CONFIRMED") {
+            const base = new Date(appointment.date);
+            const fullDate = new Date(base.getFullYear(), base.getMonth(), base.getDate(), Math.floor(appointment.startMin / 60), appointment.startMin % 60);
+            if (fullDate < new Date())
+                throw new Error("No se puede confirmar una cita pasada");
+        }
+        const result = await prisma_1.default.appointment.updateMany({
+            where: { id: appointmentId, status: appointment.status },
+            data: { status },
+        });
+        if (result.count === 0) {
+            throw new Error("La cita fue modificada por otro proceso");
+        }
+        const updated = await prisma_1.default.appointment.findUnique({
+            where: { id: appointmentId },
+            include: {
+                service: true,
+                professional: {
+                    include: {
+                        user: true,
+                        specialties: {
+                            where: { status: "APPROVED" },
+                            include: { specialty: true },
+                        },
                     },
-                }
-                : appt.guest
-                    ? {
-                        id: appt.guest.id,
-                        name: appt.guest.name,
-                        lastName: null,
-                        user: { id: 0, email: appt.guest.email || "" },
-                    }
-                    : null,
-        }));
+                },
+                clientProfile: { include: { user: true } },
+                guest: true,
+            },
+        });
+        if (!updated)
+            throw new Error("Error inesperado");
+        if (updated.clientProfile) {
+            if (status === "CONFIRMED") {
+                await notifications_service_1.NotificationService.notifyAppointmentConfirmed(updated.clientProfile.userId, updated.professional.userId, updated.id);
+            }
+            else if (status === "CANCELLED") {
+                await notifications_service_1.NotificationService.notifyAppointmentCancelled(updated.clientProfile.userId, updated.professional.userId, updated.id, "PROFESSIONAL");
+            }
+        }
+        if (updated.guest && status === "CANCELLED") {
+            console.log("Enviar email a guest:", updated.guest.email);
+        }
+        return this.mapToDTO(updated, !!updated.guest);
     }
     // Obtener próximas citas de un usuario (cliente o profesional)
     static async getUpcomingAppointmentsByUser(userId) {
@@ -325,90 +212,118 @@ class AppointmentService {
             },
             include: {
                 service: true,
-                professional: { include: { user: true, specialty: true } },
+                professional: {
+                    include: {
+                        user: true,
+                        specialties: {
+                            where: { status: "APPROVED" },
+                            include: { specialty: true },
+                        },
+                    },
+                },
                 clientProfile: { include: { user: true } },
                 guest: true,
             },
             orderBy: { date: "asc" },
         });
+        const now = new Date();
+        // Filtrar solo citas que todavía no pasaron
         const upcoming = appointments.filter((appt) => {
             const base = new Date(appt.date);
-            const hours = Math.floor(appt.startMin / 60);
-            const minutes = appt.startMin % 60;
-            const fullDate = new Date(base.getFullYear(), base.getMonth(), base.getDate(), hours, minutes);
-            return fullDate >= new Date();
+            const fullDate = new Date(base.getFullYear(), base.getMonth(), base.getDate(), Math.floor(appt.startMin / 60), appt.startMin % 60);
+            return fullDate >= now;
         });
-        return upcoming.map((appt) => ({
-            id: appt.id,
-            date: appt.date.toISOString().split("T")[0],
-            startMin: appt.startMin,
-            endMin: appt.endMin,
-            notes: appt.notes,
-            status: appt.status,
-            service: {
-                id: appt.service.id,
-                name: appt.service.name,
-                description: appt.service.description,
-                durationMin: appt.service.durationMin,
-                price: Number(appt.service.price),
+        // Mapear usando el helper central para mantener consistencia
+        return upcoming.map((appt) => this.mapToDTO(appt, !!appt.guest));
+    }
+    // Obtener todas las citas de un usuario (cliente o profesional)
+    static async getAppointmentsByUser(userId) {
+        const clientProfile = await prisma_1.default.clientProfile.findUnique({
+            where: { userId },
+        });
+        const professionalProfile = await prisma_1.default.professionalProfile.findUnique({
+            where: { userId },
+        });
+        const where = {};
+        if (clientProfile) {
+            where.OR = [{ clientProfileId: clientProfile.id }];
+        }
+        if (professionalProfile) {
+            where.OR = where.OR
+                ? [...where.OR, { professionalProfileId: professionalProfile.id }]
+                : [{ professionalProfileId: professionalProfile.id }];
+        }
+        if (!where.OR)
+            return []; // usuario sin citas
+        const appointments = await prisma_1.default.appointment.findMany({
+            where: {
+                OR: [{ clientProfile: { userId } }, { professional: { userId } }],
             },
-            professional: {
-                id: appt.professional.id,
-                name: appt.professional.name,
-                lastName: appt.professional.lastName,
-                phone: appt.professional.phone,
-                avatar: appt.professional.avatar,
-                specialty: appt.professional.specialty
-                    ? {
-                        id: appt.professional.specialty.id,
-                        name: appt.professional.specialty.name,
-                    }
-                    : null,
-                user: {
-                    id: appt.professional.user.id,
-                    email: appt.professional.user.email,
-                },
-            },
-            client: appt.clientProfile
-                ? {
-                    id: appt.clientProfile.id,
-                    name: appt.clientProfile.name,
-                    lastName: appt.clientProfile.lastName,
-                    user: {
-                        id: appt.clientProfile.user.id,
-                        email: appt.clientProfile.user.email,
+            include: {
+                service: true,
+                professional: {
+                    include: {
+                        user: true,
+                        specialties: {
+                            where: { status: "APPROVED" },
+                            include: { specialty: true },
+                        },
                     },
-                }
-                : appt.guest
-                    ? {
-                        id: appt.guest.id,
-                        name: appt.guest.name,
-                        lastName: null,
-                        user: { id: 0, email: appt.guest.email || "" },
-                    }
-                    : null,
-        }));
+                },
+                clientProfile: { include: { user: true } },
+                guest: true,
+                review: true,
+            },
+            orderBy: { date: "desc" },
+        });
+        // Mapear usando el helper central
+        return appointments.map((appt) => this.mapToDTO(appt, !!appt.guest));
+    }
+    // Slots disponibles
+    static async getAvailability(professionalProfileId, serviceId, startOfDay, endOfDay) {
+        const now = new Date();
+        if (endOfDay <= now)
+            return [];
+        const service = await this.getServiceById(serviceId, professionalProfileId);
+        const jsDay = startOfDay.getUTCDay();
+        const dayOfWeek = jsDay === 0 ? 7 : jsDay;
+        const schedules = await prisma_1.default.schedule.findMany({
+            where: { profileId: professionalProfileId, dayOfWeek, isActive: true },
+            select: { startMin: true, endMin: true },
+        });
+        const appointments = await prisma_1.default.appointment.findMany({
+            where: {
+                professionalProfileId,
+                date: { gte: startOfDay, lt: endOfDay },
+                status: { not: "CANCELLED" },
+            },
+            select: { startMin: true, endMin: true },
+        });
+        const slots = (0, availability_util_1.generateAvailabilitySlots)({
+            schedules,
+            appointments,
+            serviceDuration: service.durationMin,
+        });
+        const isToday = startOfDay <= now && endOfDay > now;
+        if (isToday) {
+            const minutesSinceStart = Math.floor((now.getTime() - startOfDay.getTime()) / 60000);
+            return slots.filter((slot) => slot.startMin > minutesSinceStart);
+        }
+        return slots;
     }
     // -----------------------------
     // 🔒 Helpers privados
     // -----------------------------
-    // Obtener servicio por ID
-    static async getServiceById(serviceId, professionalProfileId) {
+    static async getServiceById(serviceId, profileId) {
         const service = await prisma_1.default.service.findFirst({
-            where: {
-                id: serviceId,
-                profileId: professionalProfileId,
-                isActive: true,
-            },
+            where: { id: serviceId, profileId, isActive: true },
         });
-        if (!service) {
+        if (!service)
             throw new Error("Servicio no pertenece al profesional");
-        }
         return service;
     }
     static async validateSchedule(professionalProfileId, date, startMin, endMin) {
-        const jsDay = date.getUTCDay();
-        const dayOfWeek = jsDay === 0 ? 7 : jsDay;
+        const dayOfWeek = date.getUTCDay() === 0 ? 7 : date.getUTCDay();
         const schedule = await prisma_1.default.schedule.findFirst({
             where: {
                 profileId: professionalProfileId,
@@ -421,7 +336,6 @@ class AppointmentService {
         if (!schedule)
             throw new Error("Fuera de horario");
     }
-    // Validar que no haya solapamiento de citas
     static async validateOverlap(professionalProfileId, date, startMin, endMin) {
         const overlap = await prisma_1.default.appointment.findFirst({
             where: {
@@ -433,6 +347,58 @@ class AppointmentService {
         });
         if (overlap)
             throw new Error("Horario ocupado");
+    }
+    // Mapper común a DTO
+    static mapToDTO(appointment, isGuest = false) {
+        const specialty = appointment.professional.specialties?.[0]?.specialty || null;
+        return {
+            id: appointment.id,
+            date: appointment.date.toISOString(),
+            startMin: appointment.startMin,
+            endMin: appointment.endMin,
+            notes: appointment.notes,
+            status: appointment.status,
+            service: {
+                id: appointment.service.id,
+                name: appointment.service.name,
+                description: appointment.service.description,
+                durationMin: appointment.service.durationMin,
+                price: Number(appointment.service.price),
+            },
+            professional: {
+                id: appointment.professional.id,
+                name: appointment.professional.name,
+                lastName: appointment.professional.lastName,
+                phone: appointment.professional.phone,
+                avatar: appointment.professional.avatar,
+                specialty: specialty
+                    ? { id: specialty.id, name: specialty.name }
+                    : null,
+                user: {
+                    id: appointment.professional.user.id,
+                    email: appointment.professional.user.email,
+                },
+            },
+            client: !isGuest && appointment.clientProfile
+                ? {
+                    id: appointment.clientProfile.id,
+                    name: appointment.clientProfile.name,
+                    lastName: appointment.clientProfile.lastName,
+                    avatar: appointment.clientProfile.avatar,
+                    user: {
+                        id: appointment.clientProfile.user.id,
+                        email: appointment.clientProfile.user.email,
+                    },
+                }
+                : appointment.guest
+                    ? {
+                        id: appointment.guest.id,
+                        name: appointment.guest.name,
+                        lastName: null,
+                        user: { id: 0, email: appointment.guest.email || "" },
+                    }
+                    : null,
+        };
     }
 }
 exports.AppointmentService = AppointmentService;

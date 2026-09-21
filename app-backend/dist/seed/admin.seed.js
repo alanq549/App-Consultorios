@@ -7,7 +7,7 @@ exports.seedAdmin = seedAdmin;
 // src/seed/admin.seed.ts
 const prisma_1 = __importDefault(require("../core/prisma"));
 const bcrypt_1 = __importDefault(require("bcrypt"));
-const media_1 = require("@/core/config/media");
+const media_1 = require("../core/config/media");
 async function seedAdmin() {
     const adminEmail = "admin@test.com";
     const adminExists = await prisma_1.default.user.findUnique({
@@ -17,7 +17,7 @@ async function seedAdmin() {
         console.log("[SEED] Admin ya existe ⚠️"); // le puse aqui un 2 para diferenciar de otro mensaje similar, y resulto ser el mismo
         return;
     }
-    const hashedPassword = await bcrypt_1.default.hash("Admin123*", 10);
+    const hashedPassword = await bcrypt_1.default.hash("Admin123", 10);
     await prisma_1.default.user.upsert({
         where: { email: adminEmail },
         update: {}, // si existe, no hagas nada

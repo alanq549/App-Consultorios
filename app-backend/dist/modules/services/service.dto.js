@@ -11,8 +11,10 @@ exports.CreateServiceSchema = zod_1.z.object({
         .number()
         .int()
         .positive()
+        .max(480)
         .refine((v) => v % SLOT_MINUTES === 0, { message: "durationMin debe ser múltiplo de 15" }),
     price: zod_1.z.number().positive(),
+    specialtyId: zod_1.z.number().int().positive(), // <-- agregado
 });
 // DTO para actualizar servicio
 exports.UpdateServiceSchema = zod_1.z.object({
@@ -22,7 +24,10 @@ exports.UpdateServiceSchema = zod_1.z.object({
         .number()
         .int()
         .positive()
-        .refine((v) => v % SLOT_MINUTES === 0, { message: "durationMin debe ser múltiplo de 15" }).optional(),
+        .max(480, { message: "la duracion no puede ser mayor a 8 hrs (480 minutos)" })
+        .refine((v) => v % SLOT_MINUTES === 0, { message: "durationMin debe ser múltiplo de 15" })
+        .optional(),
     price: zod_1.z.number().positive().optional(),
+    specialtyId: zod_1.z.number().int().positive().optional(), // opcional en update
     isActive: zod_1.z.boolean().optional(),
 });

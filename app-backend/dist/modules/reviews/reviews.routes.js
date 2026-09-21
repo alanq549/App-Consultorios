@@ -1,0 +1,12 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+const express_1 = require("express");
+const reviews_controller_1 = require("./reviews.controller");
+const auth_middleware_1 = require("../../middlewares/auth.middleware");
+const role_middleware_1 = require("../../middlewares/role.middleware");
+const router = (0, express_1.Router)();
+router.post("/", auth_middleware_1.authMiddleware, (0, role_middleware_1.requireRole)("CLIENT"), reviews_controller_1.ReviewsController.create);
+router.get("/professional/:professionalProfileId", auth_middleware_1.authMiddleware, reviews_controller_1.ReviewsController.getProfessionalReviews);
+router.get("/appointment/:appointmentId", auth_middleware_1.authMiddleware, reviews_controller_1.ReviewsController.getByAppointment);
+router.post("/batch/by-appointments", auth_middleware_1.authMiddleware, reviews_controller_1.ReviewsController.getByAppointments);
+exports.default = router;

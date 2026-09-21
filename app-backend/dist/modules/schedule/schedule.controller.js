@@ -4,7 +4,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.ScheduleController = void 0;
-const prisma_1 = __importDefault(require("@/core/prisma"));
+const prisma_1 = __importDefault(require("../../core/prisma"));
 const schedule_service_1 = require("./schedule.service");
 const schedule_dto_1 = require("./schedule.dto");
 class ScheduleController {
@@ -37,8 +37,14 @@ class ScheduleController {
     static async update(req, res, next) {
         try {
             const id = Number(req.params.id);
+            const professionalProfile = await prisma_1.default.professionalProfile.findUnique({
+                where: { userId: req.user.id },
+            });
+            if (!professionalProfile) {
+                throw new Error("Perfil profesional no existe");
+            }
             const data = schedule_dto_1.UpdateScheduleSchema.parse(req.body);
-            const schedule = await schedule_service_1.ScheduleService.update(id, data);
+            const schedule = await schedule_service_1.ScheduleService.update(id, professionalProfile.id, data);
             res.json(schedule);
         }
         catch (err) {
@@ -48,7 +54,13 @@ class ScheduleController {
     static async remove(req, res, next) {
         try {
             const id = Number(req.params.id);
-            await schedule_service_1.ScheduleService.remove(id);
+            const professionalProfile = await prisma_1.default.professionalProfile.findUnique({
+                where: { userId: req.user.id },
+            });
+            if (!professionalProfile) {
+                throw new Error("Perfil profesional no existe");
+            }
+            await schedule_service_1.ScheduleService.remove(id, professionalProfile.id);
             res.status(204).send();
         }
         catch (err) {

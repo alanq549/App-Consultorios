@@ -3,27 +3,95 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.appointmentQueue = void 0;
+// src/modules/appointments/appointment.worker.ts
 const prisma_1 = __importDefault(require("../../core/prisma"));
-const bullmq_1 = require("bullmq");
-const connection = {
-    host: process.env.REDIS_HOST,
-    port: Number(process.env.REDIS_PORT),
-    password: (process.env.REDIS_PASSWORD),
-};
-exports.appointmentQueue = new bullmq_1.Queue("appointments", { connection });
-new bullmq_1.Worker("appointments", async (job) => {
+const node_cron_1 = __importDefault(require("node-cron"));
+const notifications_service_1 = require("../notifications/notifications.service");
+/* import { Queue, Worker } from "bullmq";
+import IORedis from "ioredis";
+
+// Creamos la conexión con la URL de Upstash
+const connection = new IORedis(process.env.REDIS_URL!, {
+  maxRetriesPerRequest: null, // 🔹 obligatorio para BullMQ
+  enableReadyCheck: true,     // 🔹 recomendable con Upstash
+}) as any;
+
+// Cola de appointments
+export const appointmentQueue = new Queue("appointments", { connection });
+
+// Worker que procesa los jobs
+new Worker(
+  "appointments",
+  async (job) => {
     if (job.name.startsWith("cancel")) {
-        await prisma_1.default.appointment.update({
-            where: { id: job.data.id },
-            data: { status: "CANCELLED" },
-        });
+      await prisma.appointment.update({
+        where: { id: job.data.id },
+        data: { status: "CANCELLED" },
+      });
+      console.log(`[Worker] Cita cancelada: ${job.data.id}`);
     }
     if (job.name.startsWith("complete")) {
-        await prisma_1.default.appointment.update({
-            where: { id: job.data.id },
-            data: { status: "COMPLETED" },
-        });
+      await prisma.appointment.update({
+        where: { id: job.data.id },
+        data: { status: "COMPLETED" },
+      });
+      console.log(`[Worker] Cita completada: ${job.data.id}`);
     }
-}, { connection });
+  },
+  { connection }
+);
+
 console.log("🟢 Worker de citas iniciado, escuchando jobs...");
+ */
+function buildUTCDate(baseDate, minutes) {
+    const utc = Date.UTC(baseDate.getUTCFullYear(), baseDate.getUTCMonth(), baseDate.getUTCDate(), 0, minutes, 0, 0);
+    return new Date(utc);
+}
+// Cron job para revisar citas cada minuto
+node_cron_1.default.schedule("* * * * *", async () => {
+    const now = Date.now();
+    let changes = 0;
+    const appointments = await prisma_1.default.appointment.findMany({
+        where: {
+            status: { in: ["PENDING", "CONFIRMED"] },
+        },
+        include: {
+            clientProfile: true,
+            professional: true,
+        },
+    });
+    for (const appointment of appointments) {
+        const startDateTime = buildUTCDate(appointment.date, appointment.startMin);
+        const endDateTime = buildUTCDate(appointment.date, appointment.endMin);
+        const start = startDateTime.getTime();
+        const end = endDateTime.getTime();
+        // 🔴 cancelar si nunca se confirmó
+        if (appointment.status === "PENDING" && start <= now) {
+            await prisma_1.default.appointment.update({
+                where: { id: appointment.id },
+                data: { status: "CANCELLED" },
+            });
+            if (appointment.clientProfile) {
+                await notifications_service_1.NotificationService.notifyAppointmentCancelled(appointment.clientProfile.userId, appointment.professional.userId, appointment.id, "SYSTEM");
+            }
+            console.log(`🔴 Cita #${appointment.id} cancelada`, startDateTime.toISOString());
+            changes++;
+            continue;
+        }
+        // 🟢 completar si terminó
+        if (appointment.status === "CONFIRMED" && end <= now) {
+            await prisma_1.default.appointment.update({
+                where: { id: appointment.id },
+                data: { status: "COMPLETED" },
+            });
+            if (appointment.clientProfile) {
+                await notifications_service_1.NotificationService.notifyAppointmentCompleted(appointment.clientProfile.userId, appointment.professional.userId, appointment.id);
+            }
+            console.log(`🟢 Cita #${appointment.id} completada`, endDateTime.toISOString());
+            changes++;
+        }
+    }
+    if (changes > 0) {
+        console.log(`✅ ${changes} citas procesadas`);
+    }
+});

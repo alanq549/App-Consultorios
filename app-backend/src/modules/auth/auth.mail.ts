@@ -2,6 +2,12 @@
 import nodemailer from "nodemailer";
 const { MAIL_USER, MAIL_PASS, MAIL_FROM } = process.env;
 
+
+
+if (!MAIL_USER || !MAIL_PASS || !MAIL_FROM) {
+  throw new Error("Configuración de correo incompleta");
+}
+
 if (!MAIL_USER || !MAIL_PASS || !MAIL_FROM) {
   throw new Error("Configuración de correo incompleta");
 }

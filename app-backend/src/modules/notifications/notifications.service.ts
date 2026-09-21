@@ -4,6 +4,8 @@ import prisma from "@/core/prisma";
 import { NotificationType } from "@prisma/client";
 
 export class NotificationService {
+
+
   static async createNotification(
     userId: number,
     type: NotificationType,
@@ -81,6 +83,8 @@ export class NotificationService {
       appointmentId,
     );
   }
+
+  
   static async notifyReview(professionalId: number, appointmentId: number) {
     return this.createNotification(
       professionalId,

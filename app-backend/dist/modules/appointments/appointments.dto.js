@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.CreateGuestAppointmentSchema = exports.CreateAppointmentSchema = void 0;
+exports.UpdateAppointmentStatusSchema = exports.CreateGuestAppointmentSchema = exports.CreateAppointmentSchema = void 0;
 // src/modules/appointments/appointments.dto.ts
 const zod_1 = require("zod");
 const SLOT_MINUTES = 15;
@@ -13,13 +13,12 @@ exports.CreateAppointmentSchema = zod_1.z.object({
         .int()
         .min(0)
         .max(1440)
-        .refine(v => v % SLOT_MINUTES === 0, {
+        .refine((v) => v % SLOT_MINUTES === 0, {
         message: "startMin debe ser múltiplo de 15",
     }),
     notes: zod_1.z.string().optional(),
 });
-// src/modules/appointments/appointments.dto.ts
-/// clientes ocacionales (invitados) los registran los profesionales 
+/// clientes ocacionales (invitados) los registran los profesionales
 exports.CreateGuestAppointmentSchema = zod_1.z.object({
     professionalProfileId: zod_1.z.number().int(),
     serviceId: zod_1.z.number().int(),
@@ -29,4 +28,8 @@ exports.CreateGuestAppointmentSchema = zod_1.z.object({
     guestName: zod_1.z.string(),
     guestEmail: zod_1.z.string().email().optional(),
     guestPhone: zod_1.z.string().optional(),
+});
+// DTO para actualizar el estado de una cita (confirmar o cancelar)
+exports.UpdateAppointmentStatusSchema = zod_1.z.object({
+    status: zod_1.z.enum(["CONFIRMED", "CANCELLED"]),
 });

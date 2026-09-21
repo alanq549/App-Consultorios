@@ -6,7 +6,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.AppointmentsController = void 0;
 const appointments_service_1 = require("./appointments.service");
 const appointments_dto_1 = require("./appointments.dto");
-const prisma_1 = __importDefault(require("@/core/prisma"));
+const prisma_1 = __importDefault(require("../../core/prisma"));
 class AppointmentsController {
     // crear una cita
     static async create(req, res, next) {
@@ -39,6 +39,28 @@ class AppointmentsController {
             // 2️⃣ Crear la cita
             const appointment = await appointments_service_1.AppointmentService.createGuest(professionalProfileId, guestData);
             res.status(201).json(appointment);
+        }
+        catch (err) {
+            next(err);
+        }
+    }
+    // actualizar estado de cita (confirmar o cancelar) solo el profesional puede hacer esto
+    static async updateStatus(req, res, next) {
+        try {
+            // 1️⃣ Validar autenticación
+            if (!req.user) {
+                throw new Error("No autenticado");
+            }
+            // 2️⃣ Obtener appointmentId desde params
+            const appointmentId = Number(req.params.id);
+            if (isNaN(appointmentId)) {
+                throw new Error("ID de cita inválido");
+            }
+            // 3️⃣ Validar body
+            const { status } = appointments_dto_1.UpdateAppointmentStatusSchema.parse(req.body);
+            // 4️⃣ Llamar al service
+            const updated = await appointments_service_1.AppointmentService.updateStatusByProfessional(req.user.id, appointmentId, status);
+            res.json(updated);
         }
         catch (err) {
             next(err);

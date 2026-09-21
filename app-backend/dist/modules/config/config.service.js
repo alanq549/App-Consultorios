@@ -5,7 +5,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.ConfigService = void 0;
 // src/modules/config/config.service.ts
-const prisma_1 = __importDefault(require("@/core/prisma"));
+const prisma_1 = __importDefault(require("../../core/prisma"));
 class ConfigService {
     static async getByUser(userId) {
         const config = await prisma_1.default.customConfig.findUnique({
