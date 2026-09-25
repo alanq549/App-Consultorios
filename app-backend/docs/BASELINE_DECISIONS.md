@@ -24,6 +24,13 @@ No es un diseño final ni una implementación. No modifica `src/`, Prisma, migra
 - [REFACTOR_PHASES.md](REFACTOR_PHASES.md) — protocolo y criterios de revisión por fases.
 - `src/`, `prisma/schema.prisma` y `package.json` como evidencia de implementación actual.
 
+## 2.1 Trazabilidad de IDs de riesgos (primera revisión → revisión final)
+
+| ID original | ID final | Cambio |
+|---|---|---|
+| `P1-CONTRACT-002` | `P2-CONTRACT-008` | Reclasificado por falta de exposición sensible demostrada. |
+| `P1-OWNERSHIP-001` | `P2-OWNERSHIP-008` | Separada ausencia de constraint de creación inválida reproducida. |
+
 ## 3. Riesgos consolidados
 
 ### Criterio de clasificación
@@ -40,8 +47,8 @@ La severidad `P1/P2/P3` proviene de los baselines anteriores. `BLOCKER/NON-BLOCK
 | P1-SEC-002 | Lecturas de reviews sin ownership observable | Consultas por appointment/profesional no reciben usuario/contexto; una incluye `clientProfile`. | Posible exposición de datos de reseñas/cliente; evidencia estática no demuestra todos los escenarios. | **BLOCKER para aprobar Reviews**, no para Identity inicial. | Fase 9/10 | Política de visibilidad y ownership. |
 | P1-SEC-003 | Operaciones ADMIN sin contexto organizacional | Controllers/services operan por IDs y `ADMIN` global; no existe membership. | Riesgo condicionado al significado de ADMIN. Alto si existen admins de consultorio. | **BLOCKER para Tenancy y administración SaaS**, deferred mientras negocio no decida alcance. | Fase 3/10 | Business Decisions: ADMIN y tenant. |
 | P1-CONTRACT-001 | Rol JWT forzado con `as any` | `auth.middleware.ts` asigna `payload.role as any`. | Puede aceptar un claim estructuralmente inválido en una frontera de autorización. | **BLOCKER para estabilizar Identity**, no bloquea el inventario. | Fase 1/2 | Contrato único de actor y validación de claims. |
-| P1-CONTRACT-002 | Respuestas protegidas derivadas directamente de Prisma | Controllers responden resultados de services/Prisma; mappers no cubren todos los casos. | Cambios de `include` pueden alterar o exponer shapes; probabilidad alta durante refactor. | **NON-BLOCKER** si se evita ampliar el acoplamiento; bloquea cerrar una migración de módulo. | Fases 1/4-9 | DTOs de salida y mappers. |
-| P1-OWNERSHIP-001 | Appointment no expresa exactamente un participante | `clientProfileId` y `guestId` son opcionales independientes. | Datos ambiguos si ambos son null o ambos tienen valor; invariantes dependen del flujo. | **BLOCKER para rediseñar Appointment**, no bloquea documentación. | Fase 7 | Decisión sobre guest y regla XOR. |
+| P2-CONTRACT-008 | Respuestas protegidas derivadas directamente de Prisma | Controllers responden resultados de services/Prisma; mappers no cubren todos los casos. | La evidencia demuestra acoplamiento y riesgo de cambios de shape; no demuestra por sí sola exposición sensible actual. | **NON-BLOCKER** si se evita ampliar el acoplamiento; bloquea cerrar una migración de módulo. | Fases 1/4-9 | DTOs de salida y mappers. |
+| P2-OWNERSHIP-008 | Appointment no tiene garantía persistente del participante XOR | `clientProfileId` y `guestId` son opcionales independientes en Prisma. | Riesgo de datos ambiguos si una ruta o proceso incumple la regla; no se reprodujo creación inválida. | **BLOCKER para rediseñar Appointment**, no bloquea documentación. | Fase 7 | Decisión sobre guest y regla XOR. |
 | P1-OWNERSHIP-002 | Reserva y disponibilidad no tienen frontera transaccional única | Validación de schedule/overlap precede a `create`; restricciones no cubren todos los intervalos. | Riesgo de doble reserva bajo concurrencia. | **BLOCKER para declarar segura la migración de Appointments**. | Fase 7/10 | Política de concurrencia y timezone. |
 | P1-OWNERSHIP-003 | Rating se escribe desde Reviews sobre ProfessionalProfile | Review + rating se actualizan en una transacción; no hay autoridad conceptual definida. | Divergencia ante correcciones, borrados o concurrencia; probabilidad futura media. | **DEFERRED**, pero bloquea consolidar Reviews sin decisión de rating. | Fase 9 | Decisión sobre rating derivado/proyección. |
 | P2-SEC-001 | Dos middlewares de rol | `authorizeRole` y `requireRole` tienen tipos y respuestas diferentes. | Políticas divergentes; probabilidad de inconsistencia alta al añadir permisos. | **NON-BLOCKER** para Fase 1; blocker para una política de autorización final. | Fase 1/3 | Actor, roles y membership. |
@@ -64,6 +71,8 @@ La severidad `P1/P2/P3` proviene de los baselines anteriores. `BLOCKER/NON-BLOCK
 | P2-OWNERSHIP-005 | Notifications es dependencia transversal directa | Auth, Profiles, Specialty, Appointments y Reviews lo invocan. | Alto acoplamiento y side effects no idempotentes. | **NON-BLOCKER** inicial; blocker para Notifications aislado. | Fase 8 | Eventos y entrega. |
 | P2-OWNERSHIP-006 | `User.role` autoridad global | No existe membership ni tenant. | Impide autorización organizacional segura. | **BLOCKER para Fase 3/Tenancy**. | Fase 3 | Business Decisions Required. |
 | P2-OWNERSHIP-007 | Specialty única global | `name @unique` sin tenant. | Puede impedir catálogos por consultorio. | **BLOCKER para decidir catálogo SaaS**, no para shared kernel. | Fase 5 | Global vs tenant-owned. |
+| P2-SIDE-001 | Side effects no idempotentes fuera de transacciones de negocio | Emails y notificaciones se disparan después de escrituras; no se observa clave de idempotencia ni retry formal. | Puede haber fallo parcial o duplicación ante reintentos; es riesgo inferido estáticamente, no incidente reproducido. | **DEFERRED** para Notifications; no bloquea Fase 0. | Fase 8/10 | Eventos, retry e idempotencia. |
+| P2-OPS-001 | Worker/cron sin contrato de ejecución única o idempotencia documentada | El cron modifica citas y dispara notificaciones fuera de HTTP; no se observaron pruebas de múltiples instancias o reintentos. | Posibles ejecuciones concurrentes, duplicación o fallo parcial; no está demostrado en runtime. | **DEFERRED**; no bloquea Fase 0. | Fase 7/8/10 | Operación del worker, timezone e idempotencia. |
 | P3-SEC-001 | Respuestas 401/403 inconsistentes | Middlewares devuelven códigos distintos ante ausencia de actor. | UX y contrato de error inconsistentes. | **DEFERRED**, no bloquea. | Fase 1/3 | Error policy. |
 | P3-SEC-002 | Logs de autenticación | Se registran email y fallos de credenciales. | Riesgo de privacidad/política operativa; no se registra contraseña. | **DEFERRED**. | Fase 10 | Política de observabilidad. |
 | P3-CONTRACT-001 | Archivos de tipos/DTO vacíos | Existen archivos sin contratos efectivos. | Confusión y falsa expectativa, impacto bajo. | **NON-BLOCKER**. | Fase 1/4 | Convención de nombres. |
@@ -78,6 +87,30 @@ La severidad `P1/P2/P3` proviene de los baselines anteriores. `BLOCKER/NON-BLOCK
 - **Ausencia de tenancy:** es una condición arquitectónica conocida, no una vulnerabilidad P0/P1 por sí sola. Se vuelve blocker cuando se intenta habilitar aislamiento SaaS o permisos de organización.
 - **Endpoints públicos:** no son inseguros automáticamente. `create-guest` es una funcionalidad intencional; sus invariantes actuales están documentadas en [BASELINE_SECURITY.md](BASELINE_SECURITY.md).
 - **Relaciones Prisma:** una FK o `include` no prueba pertenencia al mismo aggregate.
+
+### Evidencia no ejecutada
+
+El baseline fue principalmente estático. No se ejecutaron:
+
+- pruebas de concurrencia;
+- pruebas completas de autorización;
+- pruebas de contratos HTTP;
+- verificación exhaustiva de respuestas reales contra una base de datos;
+- pruebas del cron/worker en runtime.
+
+Por tanto, los riesgos de doble reserva, ejecuciones concurrentes, duplicación de notificaciones o fallos parciales del worker son **riesgos inferidos por análisis estático**, no defectos o incidentes reproducidos. Las conclusiones se limitan a lo observable en el código y el schema.
+
+### Matriz consolidada de side effects
+
+| Side effect | Productor | Trigger | Transacción | Retry/idempotencia | Fallo actual observado |
+|---|---|---|---|---|---|
+| Email de verificación | `AuthService` / mail adapter | Registro y reenvío de verificación | Fuera de la transacción de persistencia | No definido; no se observa clave de idempotencia | El registro captura y registra el error de envío; la cuenta ya puede existir. |
+| Welcome notification | `AuthService` → `NotificationService` | Registro exitoso | Fuera de la transacción principal | No definido | Se captura y registra el error; no se observa retry formal. |
+| Appointment notifications | `AppointmentService` / worker → `NotificationService` | Creación, confirmación, cancelación y completado | Fuera de la escritura de `Appointment` | No definido; no se observa idempotencia por evento/destinatario | Puede existir persistencia de cita con notificación fallida; no se probó duplicación. |
+| Profile notifications | `ProfessionalProfileService` / specialty service → `NotificationService` | Aprobación, rechazo, suspensión o solicitud de specialty | Fuera de la actualización principal | No definido | Puede existir cambio de estado con side effect fallido; no se observó compensación. |
+| Cron notifications | `appointment.worker.ts` → `NotificationService` | Cron que cancela o completa citas | El update de cita y la notificación no forman una transacción única | No definido; no se probó ejecución concurrente | Posible fallo parcial o duplicación inferida; no reproducida en runtime. |
+
+Esta matriz describe evidencia actual. La política futura de eventos, retry e idempotencia queda para las fases correspondientes.
 
 ## 4. Business Decisions Required
 
@@ -171,25 +204,61 @@ Estas decisiones requieren conocimiento del producto, clientes y operación. La 
     - Opciones: personal por usuario; tenant settings; separación de ambos.
     - No asumir que `userId unique` resuelve el alcance futuro.
 
+### 4.5 Decisiones adicionales requeridas antes del refactor operativo
+
+17. **¿Cómo se resuelve el tenant en discovery público, availability y guest booking?**
+     - Afecta perfiles públicos, servicios, disponibilidad y `create-guest`, que no tienen actor autenticado.
+     - Opciones: subdominio, dominio personalizado, slug, identificador explícito, API key o combinación.
+     - No asumir que un ID global actual identifica suficientemente al tenant.
+
+18. **¿Qué política existe para eliminación, retención y anonimización de datos?**
+     - Afecta `User`, perfiles, guests, citas históricas, reviews, notificaciones, tokens y archivos.
+     - Opciones: eliminación física, soft delete, anonimización selectiva o retención por tipo de dato.
+     - No asumir que los `onDelete` actuales son la política de producto.
+
+19. **¿Qué datos deben sobrevivir en una cita histórica?**
+     - Debe decidirse si Appointment conserva servicio, precio, duración, profesional, clínica/tenant y timezone históricos.
+     - Afecta Appointments, Reviews y futuros reportes; puede requerir snapshots.
+     - No asumir que consultar el Service o Profile actual reconstruye correctamente el pasado.
+
+20. **¿Debe existir auditoría de operaciones administrativas?**
+     - Afecta aprobación de profesionales/specialties, suspensiones, cambios administrativos y acceso a datos.
+     - Opciones: auditoría completa, eventos seleccionados o ningún registro adicional.
+     - No asumir que los logs actuales constituyen auditoría de negocio.
+
+21. **¿Un usuario puede tener múltiples roles simultáneos?**
+     - Afecta `User.role`, perfiles, `/users/me`, JWT, membership y autorización.
+     - Opciones: un rol global, múltiples roles por usuario o roles por tenant.
+     - No asumir que la unicidad conceptual actual de `role` es una regla de producto.
+
+22. **¿Cuál es el ownership, aprobación y visibilidad pública de `Certificate`?**
+     - Afecta Profiles, discovery público, storage, moderación y privacidad.
+     - Opciones: propiedad del profesional con publicación inmediata, revisión administrativa o visibilidad configurable.
+     - No asumir que crear un certificado lo hace automáticamente público o verificado.
+
 ## 5. Architectural Decisions
 
-### 5.1 Decisiones establecidas (`DECIDED`)
+### 5.1 Decisiones establecidas (`DECIDED` y `DECIDED — TARGET STANDARD`)
 
 #### AD-001 — Mantener un monolito modular
 
-**Estado:** `DECIDED`.
+**Estado:** `DECIDED — TARGET STANDARD`.
 
-La evidencia muestra un backend funcional con dependencias cruzadas y sin límites contractuales estables. La estrategia inmediata debe ser modularizar dentro del mismo despliegue, no introducir microservicios prematuramente.
+La evidencia muestra un backend funcional con dependencias cruzadas y sin límites contractuales estables. La estrategia inmediata del proyecto será modularizar dentro del mismo despliegue, no introducir microservicios prematuramente.
+
+La decisión no describe el estado actual; define la restricción arquitectónica que se aplicará en fases posteriores.
 
 #### AD-002 — Organizar por contexto/módulo y mantener capas internas
 
-**Estado:** `DECIDED`.
+**Estado:** `DECIDED — TARGET STANDARD`.
 
 Cada módulo futuro debe mantener juntas sus responsabilidades de presentación, aplicación, dominio e infraestructura local. No se adoptará una estructura global que disperse cada dominio por carpetas técnicas.
 
+La decisión no describe el estado actual; define la restricción arquitectónica que se aplicará en fases posteriores.
+
 #### AD-003 — Separar dirección de dependencias
 
-**Estado:** `DECIDED`.
+**Estado:** `DECIDED — TARGET STANDARD`.
 
 La regla objetivo será:
 
@@ -202,35 +271,47 @@ domain -> no depende de infrastructure
 
 Los detalles de composición pueden variar durante la migración, pero un dominio no debe importar Prisma, Express, Nodemailer, filesystem ni infraestructura concreta.
 
+La decisión no describe el estado actual; define la restricción arquitectónica que se aplicará en fases posteriores.
+
 #### AD-004 — Prisma pertenece a infraestructura/persistencia
 
-**Estado:** `DECIDED`.
+**Estado:** `DECIDED — TARGET STANDARD`.
 
 Los modelos generados por Prisma y `Prisma.TransactionClient` no serán contratos de dominio ni contratos HTTP. El acceso actual directo se registra como deuda de migración.
 
+La decisión no describe el estado actual; define la restricción arquitectónica que se aplicará en fases posteriores.
+
 #### AD-005 — No usar FK como criterio automático de aggregate
 
-**Estado:** `DECIDED`.
+**Estado:** `DECIDED — TARGET STANDARD`.
 
 Las relaciones Prisma expresan persistencia. La pertenencia a un aggregate dependerá de invariantes y consistencia transaccional, no de `@relation`, `include` o una carpeta actual.
 
+La decisión no describe el estado actual; define la restricción arquitectónica que se aplicará en fases posteriores.
+
 #### AD-006 — Controllers no deben contener reglas de negocio ni consultar Prisma
 
-**Estado:** `DECIDED`.
+**Estado:** `DECIDED — TARGET STANDARD`.
 
 Los controllers deben traducir HTTP a comandos/queries de aplicación y traducir resultados/errores a HTTP. Las reglas observadas en controllers y el acceso directo de appointments quedan como deuda explícita.
 
+La decisión no describe el estado actual; define la restricción arquitectónica que se aplicará en fases posteriores.
+
 #### AD-007 — Cross-context mediante contratos explícitos
 
-**Estado:** `DECIDED`.
+**Estado:** `DECIDED — TARGET STANDARD`.
 
 Un contexto no debe importar repositories internos, modelos Prisma ni services estáticos internos de otro contexto. La dependencia deberá resolverse, según el caso, por port, application contract, facade, read model, referencia por ID o evento.
 
+La decisión no describe el estado actual; define la restricción arquitectónica que se aplicará en fases posteriores. La elección concreta entre port, facade, read model, evento o referencia por ID queda pendiente y deberá hacerse caso por caso.
+
 #### AD-008 — Shared kernel pequeño
 
-**Estado:** `DECIDED`.
+**Estado:** `DECIDED — TARGET STANDARD`.
 
 `shared/` solo debe contener primitivas realmente transversales: errores base, configuración, tipos técnicos mínimos, infraestructura común y contratos transversales cuidadosamente definidos. No debe ocultar reglas de appointments, profiles o catalog.
+
+La decisión no describe el estado actual; define la restricción arquitectónica que se aplicará en fases posteriores.
 
 #### AD-009 — Un único contrato interno del actor autenticado
 
@@ -238,11 +319,15 @@ Un contexto no debe importar repositories internos, modelos Prisma ni services e
 
 No se mantendrán a largo plazo las representaciones duplicadas de `req.user`, `AuthUser` y payloads incompatibles. El contrato debe separar identidad, rol/permisos y contexto tenant cuando este exista.
 
+La decisión de contar con una única abstracción interna del actor está establecida. El shape definitivo respecto a tenant, memberships, roles y permisos permanece `PENDING` y no se fija en Fase 0.
+
 #### AD-010 — Respuestas públicas mediante view models/mappers
 
-**Estado:** `DECIDED`.
+**Estado:** `DECIDED — TARGET STANDARD`.
 
 Los modelos Prisma no deben salir directamente como contrato público. Las lecturas deberán definir explícitamente qué campos y relaciones exponen, especialmente perfiles, reviews, appointments y notificaciones.
+
+La decisión no describe el estado actual; define la restricción arquitectónica que se aplicará en fases posteriores.
 
 #### AD-011 — No ampliar deuda durante la migración
 
@@ -287,6 +372,55 @@ Appointment parece aggregate root, pero participant invariant, snapshots, pagos,
 **Estado:** `PENDING`.
 
 Debe definirse si Scheduling es autoridad de slots, si Appointments reserva, y qué garantía transaccional requiere el negocio.
+
+#### AD-P-007 — Definición conceptual de `ProfessionalSpecialty`
+
+**Estado:** `PENDING`.
+
+El concepto puede representar una solicitud, una capacidad profesional, una membresía al catálogo, una asociación administrativa o una combinación de ellas. La evidencia actual no permite elegir una interpretación única.
+
+#### AD-P-008 — Datos históricos y snapshots de Appointment
+
+**Estado:** `PENDING`.
+
+Debe definirse qué información sobre servicio, precio, duración, profesional, clínica/tenant y timezone debe sobrevivir para citas históricas, reviews y reportes.
+
+#### AD-P-009 — Resolución de tenant para superficies públicas
+
+**Estado:** `PENDING`.
+
+Discovery, availability y guest booking necesitan resolver tenant sin depender necesariamente de un JWT. La estrategia concreta afecta Fase 3 y los endpoints públicos.
+
+#### AD-P-010 — Retención, eliminación y anonimización
+
+**Estado:** `PENDING`.
+
+La política de ciclo de vida de cuentas, guests, citas, reviews, tokens y archivos condiciona ownership, cascades y fases de endurecimiento SaaS.
+
+#### AD-P-011 — Auditoría administrativa
+
+**Estado:** `PENDING`.
+
+El producto debe decidir qué operaciones administrativas deben ser trazables y por cuánto tiempo.
+
+#### AD-P-012 — Ownership y visibilidad de Certificate
+
+**Estado:** `PENDING`.
+
+Debe decidirse si Certificate requiere aprobación, si es público, quién puede modificarlo y cómo se relaciona con storage.
+
+## 5.3 Terminología del baseline
+
+Para evitar tratar conceptos distintos como sinónimos:
+
+- **Módulo actual:** carpeta o agrupación técnica existente en `src/modules`.
+- **Área funcional:** conjunto de responsabilidades observadas en el comportamiento actual, aunque estén repartidas en varios módulos.
+- **Bounded context candidato:** hipótesis de límite semántico futuro; no es todavía una implementación.
+- **Subdominio:** clasificación del problema de negocio; puede contener uno o más módulos o contextos.
+
+`NotificationService` es el servicio técnico actual que persiste y crea notificaciones. `Notifications` es el bounded context candidato de entrega/comunicación. No son equivalentes en el estado actual.
+
+`ProfessionalSpecialty` mantiene definición conceptual `PENDING`: puede ser solicitud, capacidad, membresía al catálogo, asociación administrativa o combinación de ellas.
 
 ## 6. Future Contracts / Dependencies
 
