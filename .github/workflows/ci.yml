@@ -1,0 +1,104 @@
+# Nombre que aparecerá en la pestaña Actions de GitHub.
+name: CI
+
+# Eventos que inician esta validación automática.
+on:
+  push:
+    # Valida los cambios enviados directamente a las ramas principales.
+    branches:
+      - main
+      - master
+      - develop
+  # Valida cada pull request antes de poder fusionarlo.
+  pull_request:
+
+# El workflow solo necesita leer el contenido del repositorio.
+permissions:
+  contents: read
+
+# Evita ejecutar validaciones antiguas cuando llega un cambio más reciente.
+concurrency:
+  # Cada rama o pull request tiene su propio grupo de ejecuciones.
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  # Ahorra tiempo y recursos cancelando la ejecución reemplazada.
+  cancel-in-progress: true
+
+jobs:
+  # Comprueba que la API pueda instalarse, generar Prisma y compilarse.
+  backend:
+    # Nombre visible del trabajo en GitHub Actions.
+    name: Backend
+    # Usa un runner Linux administrado por GitHub.
+    runs-on: ubuntu-latest
+    # Ejecuta los comandos del trabajo dentro del proyecto backend.
+    defaults:
+      run:
+        working-directory: app-backend
+
+    steps:
+      # Descarga el commit que disparó este workflow.
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # Instala la versión de Node compatible con el backend y Docker.
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          # Reutiliza dependencias descargadas cuando el lockfile no cambia.
+          cache: npm
+          # Lockfile usado para calcular la clave de cache del backend.
+          cache-dependency-path: app-backend/package-lock.json
+
+      # Instala exactamente las versiones declaradas en package-lock.json.
+      - name: Install backend dependencies
+        run: npm ci
+
+      # Genera el cliente tipado que usa el código backend.
+      - name: Generate Prisma client
+        run: npx prisma generate --schema=prisma/schema.prisma
+        env:
+          # Prisma necesita una URL válida, pero este paso no se conecta a la BD.
+          DATABASE_URL_psg: postgresql://ci:ci@localhost:5432/consultorios
+
+      # Comprueba los tipos y genera el código compilado del backend.
+      - name: Build backend
+        run: npm run build
+
+  # Comprueba que la interfaz pase lint y pueda generar el bundle de producción.
+  frontend:
+    # Nombre visible del trabajo en GitHub Actions.
+    name: Frontend
+    # Usa un runner Linux administrado por GitHub.
+    runs-on: ubuntu-latest
+    # Ejecuta los comandos del trabajo dentro del proyecto frontend.
+    defaults:
+      run:
+        working-directory: app-consultorio
+
+    steps:
+      # Descarga el commit que disparó este workflow.
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # Instala la misma versión principal de Node usada por el proyecto.
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          # Reutiliza dependencias descargadas cuando el lockfile no cambia.
+          cache: npm
+          # Lockfile usado para calcular la clave de cache del frontend.
+          cache-dependency-path: app-consultorio/package-lock.json
+
+      # Instala exactamente las versiones declaradas en package-lock.json.
+      - name: Install frontend dependencies
+        run: npm ci
+
+      # Detecta errores de estilo y reglas incumplidas en React/TypeScript.
+      - name: Lint frontend
+        run: npm run lint
+
+      # Genera el bundle de producción y comprueba que Vite pueda compilarlo.
+      - name: Build frontend
+        run: npm run build

@@ -113,48 +113,59 @@ Establecer una fotografía confiable del backend actual antes de modificar su ar
 
 ### Objetivo
 
-Crear únicamente las piezas transversales que todos los módulos necesitan.
+Consolidar las piezas transversales justificadas por el código actual, un contrato interno mínimo del actor y una salida controlada de `core/`. El alcance detallado queda definido en [FASE1_SHARED_KERNEL.md](FASE1_SHARED_KERNEL.md), que sustituye el alcance anterior de esta fase.
 
 ### Alcance
 
-Crear o consolidar:
+Crear o consolidar únicamente:
 
 ```text
 src/shared/
   errors/
-  config/
-  events/
-  types/
   database/
+  http/
+  types/
 ```
 
 Además:
 
-- un único tipo de usuario autenticado en Express;
-- errores de dominio diferenciados de errores HTTP;
-- configuración validada al arrancar;
-- convención única para schemas Zod y tipos inferidos.
+- un único contrato `ActorContext` compatible con los campos actuales `id` y `role`;
+- validar `userId` y `role` actuales antes de crear `ActorContext`, sin rediseñar roles;
+- mantener JWT dentro de Auth/Identity;
+- mover la instancia Prisma sin centralizar queries de negocio;
+- conservar `AppError` como error técnico/HTTP legado, sin cambiar `statusCode`, `isOperational` ni respuesta;
+- mover el bootstrap a `src/bootstrap/server.ts`, manteniendo `src/index.ts` como entrypoint;
+- registrar los elementos restantes de `core/` con su destino e hito en el informe de Fase 1.
 
-### Contrato esperado
+No crear `shared/config/` ni `shared/events/`; no agregar `tenantId`, memberships, scopes o permisos. El fail-fast de `JWT_SECRET`, la configuración global validada al arranque y la separación ejecutable de errores de dominio/HTTP quedan fuera de Fase 1, salvo aprobación explícita de cambio de alcance. La política de configuración JWT ante ausencia o valor inválido es precondición de Fase 2.
+
+### Contrato transicional del actor
 
 ```ts
-export type AuthenticatedUser = {
+export interface ActorContext {
   id: number;
-  role: Role;
-  tenantId?: number;
-};
+  role: "ADMIN" | "PROFESSIONAL" | "CLIENT";
+}
 ```
 
-El `tenantId` puede ser opcional temporalmente durante la transición, pero no debe considerarse opcional en operaciones que ya sean tenant-owned.
+`role` contiene únicamente uno de los valores actuales aceptados; la unión representa el contrato existente y no define la autorización futura. La validación detallada del contrato Identity/JWT se completa en Fase 2 y es una precondición de esa fase. La validación mínima de estructura/valores antes de formar `ActorContext` es necesaria en Fase 1.
 
 ### Criterios de aceptación
 
 - [ ] existe una sola declaración de `Request.user`;
-- [ ] no hay dos implementaciones de `AppError`;
-- [ ] el error handler conserva el formato actual o documenta el cambio;
-- [ ] la configuración requerida falla explícitamente si falta;
-- [ ] nuevos DTOs usan `Schema` para Zod y `Dto` para el tipo inferido;
-- [ ] `shared` no contiene lógica específica de citas, usuarios o perfiles.
+- [ ] `src/shared/http/express.d.ts` es la única augmentation canónica y no queda un segundo archivo equivalente;
+- [ ] `tsc --noEmit` termina exitosamente;
+- [ ] una revisión de imports/propiedad confirma que `shared/` no referencia módulos ni DTOs, schemas, services, controllers, entidades, modelos o lógica de negocio de módulos, y que cada elemento tiene justificación transversal propia;
+- [ ] `userId` y `role` se validan antes de construir `ActorContext`;
+- [ ] la asignación de `role` no usa `as any`;
+- [ ] `AppError` sigue siendo un error técnico/HTTP legado y conserva sus propiedades actuales;
+- [ ] el error handler conserva status y formato de respuesta actuales;
+- [ ] Prisma se provee desde `shared/database` sin centralizar queries de negocio;
+- [ ] el bootstrap está en `src/bootstrap/server.ts` y el entrypoint conserva el comportamiento;
+- [ ] cada elemento que permanezca en `core/` tiene destino e hito documentados;
+- [ ] `core/` no se elimina hasta estar vacío y haber migrado todos sus consumidores;
+- [ ] `shared` no contiene lógica específica de citas, usuarios o perfiles;
+- [ ] `shared/` solo depende de librerías/frameworks técnicos y tipos primitivos o contratos propios de `shared`, sin importar módulos, DTOs, services, controllers o modelos de negocio.
 
 ### Revisión específica
 
@@ -163,7 +174,10 @@ El reviewer debe rechazar:
 - un `BaseService` genérico que esconda lógica;
 - un `BaseRepository` que elimine la semántica de cada agregado;
 - tipos globales que importen modelos de todos los módulos;
-- utilidades que dependan de Prisma y se presenten como `shared`.
+- utilidades que dependan de Prisma y se presenten como `shared`;
+- `shared/events/`, `shared/config/` o JWT genérico añadidos sin una necesidad transversal aprobada;
+- `tenantId`, memberships, scopes o permisos añadidos al actor en esta fase;
+- presentar `AppError` como error de dominio.
 
 ---
 
@@ -529,6 +543,28 @@ Preparar operación multi-tenant confiable.
 
 ---
 
+## Precondiciones de decisión por fase
+
+Esta sección no implementa ninguna fase. Define qué decisiones deben estar cerradas antes de iniciar cada una. Si una decisión sigue pendiente, la fase debe limitar su alcance o quedar `BLOCKED`; no debe resolverse mediante supuestos silenciosos.
+
+| Fase | Decisiones de negocio/arquitectura requeridas antes de iniciar |
+|---|---|
+| Fase 0 | Evidencia del baseline, clasificación de riesgos, estado de rutas, operaciones runtime/seed/cascade, y decisiones pendientes documentadas. El estado final debe ser `READY FOR FINAL REVIEW` hasta la aprobación del reviewer. |
+| Fase 1 — Shared kernel | Se rige por el alcance redefinido en [FASE1_SHARED_KERNEL.md](FASE1_SHARED_KERNEL.md): contrato mínimo del actor y validación de claims actuales antes de crearlo; no congela tenant, memberships, permisos ni semántica futura de roles. No incluye `shared/events/`, configuración validada global al arranque ni separación ejecutable de errores de dominio/HTTP. La definición completa de claims/sesiones JWT es precondición de Fase 2. |
+| Fase 2 — Identity | Deben estar definidos el alcance de Identity, el contrato compatible de JWT/sesión, el significado provisional de los roles actuales y la separación entre credenciales y perfiles. El shape definitivo de tenant/membership puede permanecer pendiente, pero no se debe introducir una autorización tenant incompleta. |
+| Fase 3 — Tenancy | Deben estar cerrados como mínimo: significado de `ADMIN`; membership simple o múltiple; estrategia de tenant resolution; ownership inicial de perfiles; y tratamiento de actores públicos/guest. También debe definirse qué superficies son tenant-owned antes de aplicar aislamiento. |
+| Fase 4 — Profiles | Deben estar definidos ownership global/tenant de clientes y profesionales, posibilidad de múltiples roles, lifecycle de `ProfessionalProfile`, aprobación de `ProfessionalSpecialty`, ownership/aprobación/visibilidad de `Certificate` y datos públicos de perfiles. |
+| Fase 5 — Catalog | Deben estar definidos catálogo global versus tenant-owned, propiedad de `Specialty`, significado conceptual de `ProfessionalSpecialty`, regla para servicios reservables y efecto de cambiar/desactivar precio, duración, specialty o servicio con citas futuras. |
+| Fase 6 — Scheduling | Deben estar definidos timezone del tenant/profesional, convención de `dayOfWeek`, modelo de horarios recurrentes/excepciones, autoridad de disponibilidad, política ante cambios con citas existentes y estrategia de concurrencia. |
+| Fase 7 — Appointments | Deben estar definidos el invariant de participante cliente/guest, lifecycle de guest, snapshots históricos de servicio/precio/duración/profesional/clínica/timezone, políticas de cancelación y pago, autoridad de reserva y garantía contra doble booking. |
+| Fase 8 — Notifications | Deben estar definidos canales, ownership tenant/usuario, eventos que producen notificaciones, retry, idempotencia, retención y comportamiento ante fallos parciales. `NotificationService` actual no debe confundirse con el bounded context candidato `Notifications`. |
+| Fase 9 — Reviews y Preferences | Reviews requiere decisión sobre rating derivado/proyección, moderación/eliminación, visibilidad y retención. Preferences requiere decidir si `CustomConfig` es personal, tenant-owned o dividido. Preferences puede evolucionar parcialmente después de Identity si su alcance tenant queda explícitamente pendiente. |
+| Fase 10 — Endurecimiento SaaS | Deben estar cerrados tenant resolution, retención/anonimización, auditoría administrativa, canales/eventos, storage tenant-aware, límites operativos y criterios de recuperación. |
+
+Estas precondiciones distinguen dependencia conceptual, decisión de negocio y orden de migración. No constituyen implementación ni crean contratos ejecutables.
+
+---
+
 ## Plantilla para solicitar revisión
 
 Usar esta plantilla al terminar cada fase:
@@ -604,4 +640,3 @@ APPROVED | CHANGES_REQUESTED | BLOCKED
 - `P1`: incumplimiento importante de arquitectura, autorización, concurrencia o contrato que debe corregirse antes de avanzar.
 - `P2`: deuda técnica o mejora importante que no bloquea la fase.
 - `P3`: estilo, documentación o mejora no urgente.
-
