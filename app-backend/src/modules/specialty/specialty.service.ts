@@ -1,5 +1,5 @@
 ///src/modules/specialty/specialty.service.ts
-import prisma from "@/core/prisma";
+import prisma from "@/shared/database/prisma";
 import { CreateSpecialtyDTO, UpdateSpecialtyDTO } from "./specialty.dto";
 
 export class SpecialtyService {

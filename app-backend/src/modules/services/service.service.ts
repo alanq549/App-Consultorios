@@ -1,5 +1,5 @@
 // src/modules/service/service.service.ts
-import prisma from "@/core/prisma";
+import prisma from "@/shared/database/prisma";
 import { CreateServiceDTO, UpdateServiceDTO } from "./service.dto";
 
 export class ServiceService {

@@ -1,5 +1,5 @@
 // appointments.service.ts
-import prisma from "@/core/prisma";
+import prisma from "@/shared/database/prisma";
 import {
   AppointmentResponseDTO,
   CreateAppointmentDTO,

@@ -6,7 +6,7 @@ import {
   CreateGuestAppointmentSchema,
   UpdateAppointmentStatusSchema,
 } from "./appointments.dto";
-import prisma from "@/core/prisma";
+import prisma from "@/shared/database/prisma";
 
 export class AppointmentsController {
   // crear una cita

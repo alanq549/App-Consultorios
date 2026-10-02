@@ -6,7 +6,7 @@ import {
   ForgotPasswordDTO,
   ResetPasswordDTO,
 } from "./auth.dto";
-import { AppError } from "@/core/errors/AppError";
+import { AppError } from "@/shared/errors/AppError";
 
 export class AuthController {
   static async register(req: Request, res: Response, next: NextFunction) {

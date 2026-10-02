@@ -1,6 +1,6 @@
 import bcrypt from "bcrypt";
 import crypto from "crypto";
-import prisma from "@/core/prisma";
+import prisma from "@/shared/database/prisma";
 import { generateToken } from "./auth.tokens";
 import { Role } from "@prisma/client";
 import { sendVerificationEmail, sendResetPasswordEmail } from "./auth.mail";
@@ -8,7 +8,7 @@ import { RegisterDTO } from "./auth.dto";
 import { DEFAULT_AVATAR } from "@/core/config/media";
 
 import { z } from "zod";
-import { AppError } from "@/core/errors/AppError";
+import { AppError } from "@/shared/errors/AppError";
 import { NotificationService } from "../notifications/notifications.service";
 
 type RegisterInput = z.infer<typeof RegisterDTO>;

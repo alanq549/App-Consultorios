@@ -1,5 +1,5 @@
 // src/modules/users/clientprofile/clientprofile.service.ts
-import prisma from "@/core/prisma";
+import prisma from "@/shared/database/prisma";
 import { ClientProfileMapper } from "./clientprofile.mapper";
 import { UpdateClientProfileDTO } from "./clientprofile.dto";
 

@@ -1,5 +1,5 @@
 // src/modules/users/users.service.ts
-import prisma from "@/core/prisma";
+import prisma from "@/shared/database/prisma";
 import { Role } from "@prisma/client";
 import bcrypt from "bcrypt";
 import { ClientProfileService } from "./clientprofile/clientprofile.service";

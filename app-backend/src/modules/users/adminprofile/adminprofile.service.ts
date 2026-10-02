@@ -1,5 +1,5 @@
 // src/modules/users/adminprofile/adminprofile.service.ts
-import prisma from "@/core/prisma";
+import prisma from "@/shared/database/prisma";
 
 export class AdminProfileService {
 

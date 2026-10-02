@@ -1,4 +1,4 @@
-import prisma from "@/core/prisma";
+import prisma from "@/shared/database/prisma";
 import { NotificationService } from "@/modules/notifications/notifications.service";
 import { SpecialtyStatus } from "@prisma/client";
 

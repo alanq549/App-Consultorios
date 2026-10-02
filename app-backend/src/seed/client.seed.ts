@@ -1,5 +1,5 @@
 // src/seed/client.seed.ts
-import prisma from "../core/prisma";
+import prisma from "../shared/database/prisma";
 import { AppointmentStatus, PaymentStatus } from "@prisma/client"; // enums
 import bcrypt from "bcrypt";
 import { DEFAULT_AVATAR } from "@/core/config/media";

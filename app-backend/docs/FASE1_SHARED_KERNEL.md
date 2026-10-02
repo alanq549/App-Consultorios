@@ -218,3 +218,15 @@ Fase 1 estará lista para Code Review cuando:
 - `core/` no se use como arquitectura paralela y sus excepciones tengan hito/destino;
 - no cambien schema/migraciones, rutas, contratos HTTP ni comportamiento funcional;
 - pasen las validaciones del proyecto.
+
+## 10. Cierre de Fase 1
+
+**Estado:** `CLOSED / APPROVED`.
+
+- Code Reviewer aprobó la implementación con una observación menor sobre la ruta del bootstrap.
+- La observación quedó resuelta usando `src/bootstrap/server.ts`, conservando `src/index.ts` como entrypoint.
+- La validación local `npm run build` se ejecutó correctamente, incluyendo `tsc` y `tsc-alias`.
+- No se afirma aquí que el workflow remoto de CI haya terminado; su resultado debe consultarse en GitHub Actions.
+- Se mantienen fuera de alcance de Fase 1 las decisiones de identidad, configuración global, Tenancy y autorización contextual pendientes para fases posteriores.
+
+Fase 2 puede iniciar su diseño, pero su implementación debe esperar la revisión y aprobación de su diseño y el cierre de las precondiciones de negocio aplicables.

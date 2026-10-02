@@ -1,5 +1,5 @@
 // src/modules/config/config.service.ts
-import prisma from "@/core/prisma";
+import prisma from "@/shared/database/prisma";
 import { UpdateConfigInput } from "./config.dto";
 
 export class ConfigService {

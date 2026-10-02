@@ -1,5 +1,5 @@
 // src/seed/schedule.seed.ts
-import prisma from "../core/prisma";
+import prisma from "../shared/database/prisma";
 
 export async function seedSchedules() {
   const schedules = [

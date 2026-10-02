@@ -1,5 +1,5 @@
 // src/seed/admin.seed.ts
-import prisma from "../core/prisma";
+import prisma from "../shared/database/prisma";
 import bcrypt from "bcrypt";
 import { DEFAULT_AVATAR } from "@/core/config/media";
 

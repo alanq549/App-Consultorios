@@ -1,5 +1,5 @@
 // src/modules/appointments/appointment.worker.ts
-import prisma from "../../core/prisma";
+import prisma from "../../shared/database/prisma";
 import cron from "node-cron";
 import { NotificationService } from "../notifications/notifications.service";
 

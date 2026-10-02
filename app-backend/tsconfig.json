@@ -5,21 +5,25 @@
     "module": "commonjs",
     "rootDir": "src",
     "outDir": "dist",
-
     "baseUrl": "src",
     // NOTA CI: Se removio 'ignoreDeprecations: "6.0"'. En TypeScript 5.x este valor es invalido y
     // provocaba el fallo TS5103 en el build del backend en GitHub Actions ("error TS5103: Invalid value for '--ignoreDeprecations'").
     // Las opciones actuales no usan configuraciones deprecadas, por lo que no es necesaria dicha directiva.
     "paths": {
-      "@/*": ["*"]
+      "@/*": [
+        "*"
+      ]
     },
-
     "strict": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
-
-    "typeRoots": ["./src/types", "./node_modules/@types"]
   },
-  "include": ["src"],
-  "exclude": ["node_modules", "dist", "prisma"]
+  "include": [
+    "src"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist",
+    "prisma"
+  ]
 }

@@ -1,5 +1,5 @@
 // src/modules/schedule/schedule.service.ts
-import prisma from "@/core/prisma";
+import prisma from "@/shared/database/prisma";
 import { CreateScheduleDTO, UpdateScheduleDTO } from "./schedule.dto";
 
 const SLOT_MINUTES = 15;

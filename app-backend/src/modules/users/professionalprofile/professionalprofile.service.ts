@@ -1,5 +1,5 @@
 // src/modules/users/professionalprofile/professionalprofile.service.ts
-import prisma from "@/core/prisma";
+import prisma from "@/shared/database/prisma";
 import { PublicProfessionalProfile } from "./professionalprofile.type";
 import { ProfessionalStatus, SpecialtyStatus } from "@prisma/client";
 import {

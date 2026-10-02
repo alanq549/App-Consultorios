@@ -1,4 +1,4 @@
-import prisma from "@/core/prisma";
+import prisma from "@/shared/database/prisma";
 import { CreateReviewInput } from "./reviews.dto";
 import { Prisma } from "@prisma/client";
 import { NotificationService } from "../notifications/notifications.service";

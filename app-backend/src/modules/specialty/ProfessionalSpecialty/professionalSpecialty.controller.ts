@@ -2,7 +2,7 @@
 
 import { Request, Response } from "express";
 import { ProfessionalSpecialtyService } from "./ProfessionalSpecialty.Service";
-import prisma from "@/core/prisma";
+import prisma from "@/shared/database/prisma";
 
 export class ProfessionalSpecialtyController {
   // profesional solicita una especialidad

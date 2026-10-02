@@ -1,6 +1,6 @@
 import { runSeeds } from '@/seed';
-import app, {  } from '../../app';
-import "../../modules/appointments/appointment.worker"; // 👈 importa tu cron aquí
+import app, {  } from '../app';
+import "../modules/appointments/appointment.worker"; // 👈 importa tu cron aquí
 
 
 export const startServer = async () => {

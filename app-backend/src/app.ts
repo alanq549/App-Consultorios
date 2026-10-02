@@ -4,7 +4,7 @@ import authRoutes from "./modules/auth/auth.routes";
 import userRoutes from "@/modules/users/users.routes"
 import configRoutes from "@/modules/config/config.routes"
 import AppointmentRoutes from "@/modules/appointments/appointments.routes" 
-import { errorHandler } from "./core/errors/errorHandler";
+import { errorHandler } from "./shared/http/errorHandler";
 import professionalProfileRoutes from "./modules/users/professionalprofile/professionalprofile.routes";
 import serviceRoutes from "./modules/services/service.routes";
 import schedulesRoutes from "./modules/schedule/schedule.routes";

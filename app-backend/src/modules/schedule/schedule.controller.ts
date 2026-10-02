@@ -1,6 +1,6 @@
 // src/modules/schedule/schedule.controller.ts
 import { Request, Response, NextFunction } from "express";
-import prisma from "@/core/prisma";
+import prisma from "@/shared/database/prisma";
 import { ScheduleService } from "./schedule.service";
 import { CreateScheduleSchema, UpdateScheduleSchema } from "./schedule.dto";
 

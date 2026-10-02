@@ -179,6 +179,10 @@ El reviewer debe rechazar:
 - `tenantId`, memberships, scopes o permisos añadidos al actor en esta fase;
 - presentar `AppError` como error de dominio.
 
+### Estado de Fase 1
+
+**`CLOSED / APPROVED`**. Code Reviewer aprobó la implementación; la observación menor de ruta de bootstrap quedó alineada con `src/bootstrap/server.ts`. La validación local `npm run build` pasó. El resultado remoto de CI se consulta en GitHub Actions y no se presume por este registro.
+
 ---
 
 ## Fase 2 — Identity y autenticación
@@ -186,6 +190,8 @@ El reviewer debe rechazar:
 ### Objetivo
 
 Separar autenticación, credenciales y sesiones de la creación y actualización de perfiles.
+
+La Fase 2 inicia con el diseño técnico documentado en [FASE2_IDENTITY.md](FASE2_IDENTITY.md). No comenzar su implementación hasta que Code Reviewer apruebe el diseño y estén cerradas las precondiciones indicadas en ese informe.
 
 ### Contexto propietario
 
