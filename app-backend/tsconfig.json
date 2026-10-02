@@ -7,7 +7,9 @@
     "outDir": "dist",
 
     "baseUrl": "src",
-    "ignoreDeprecations": "6.0",
+    // NOTA CI: Se removio 'ignoreDeprecations: "6.0"'. En TypeScript 5.x este valor es invalido y
+    // provocaba el fallo TS5103 en el build del backend en GitHub Actions ("error TS5103: Invalid value for '--ignoreDeprecations'").
+    // Las opciones actuales no usan configuraciones deprecadas, por lo que no es necesaria dicha directiva.
     "paths": {
       "@/*": ["*"]
     },
