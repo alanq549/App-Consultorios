@@ -24,3 +24,10 @@ export class AlreadyVerifiedError extends Error {
     this.name = "AlreadyVerifiedError";
   }
 }
+
+export class InvalidRefreshTokenError extends Error {
+  constructor() {
+    super("Refresh token inválido");
+    this.name = "InvalidRefreshTokenError";
+  }
+}

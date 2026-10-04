@@ -10,6 +10,8 @@ import { BcryptPasswordHasher } from "@/modules/identity/infrastructure/bcrypt-p
 import { JwtAccessTokenService } from "../infrastructure/jwt-access-token-service";
 import { PrismaSessionRepository } from "../infrastructure/prisma/prisma-session-repository";
 import { PrismaVerificationRepository } from "../infrastructure/prisma/prisma-verification-repository";
+import { RefreshSessionDTO } from "./identity.dto";
+import { RefreshSessionUseCase } from "../application/use-cases/refresh-session.use-case";
 
 // Instanciación de los casos de uso inyectando sus respectivas implementaciones de infraestructura
 const loginUseCase = new LoginUseCase(
@@ -19,10 +21,17 @@ const loginUseCase = new LoginUseCase(
   new PrismaSessionRepository()
 );
 
+/// Instanciación del caso de uso de verificación de correo electrónico con sus dependencias
 const verifyEmailUseCase = new VerifyEmailUseCase(
   new PrismaVerificationRepository(),
   new JwtAccessTokenService(),
   new PrismaSessionRepository()
+);
+
+/// Instanciación del caso de uso de renovación de sesión con sus dependencias
+const refreshSessionUseCase = new RefreshSessionUseCase(
+  new PrismaSessionRepository(),
+  new JwtAccessTokenService()
 );
 
 export class IdentityController {
@@ -67,4 +76,28 @@ export class IdentityController {
       return next(error);
     }
   }
+
+  static async refresh(
+  req: Request,
+  res: Response,
+  next: NextFunction
+) {
+  try {
+    const data = await RefreshSessionDTO.parseAsync(req.body);
+
+    const sessionRepository = new PrismaSessionRepository();
+    const accessTokenService = new JwtAccessTokenService();
+
+    const useCase = new RefreshSessionUseCase(
+      sessionRepository,
+      accessTokenService
+    );
+
+    const result = await useCase.execute(data);
+
+    res.json(result);
+  } catch (err) {
+    next(err);
+  }
+}
 }

@@ -13,3 +13,8 @@ export const LoginDTO = z.object({
 export const VerifyEmailDTO = z.object({
   token: z.string().min(1),
 });
+
+/// Valida que la petición de renovación de sesión contenga un refresh token no vacío.
+export const RefreshSessionDTO = z.object({
+  refreshToken: z.string().min(1),
+});

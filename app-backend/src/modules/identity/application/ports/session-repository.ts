@@ -1,14 +1,32 @@
 /// ARCHIVO: src/modules/identity/application/ports/session-repository.ts
-/// Entidad de sesión (refresh token) y puerto para gestionar su persistencia en la base de datos.
+/// Contrato para la gestión de sesiones/refresh tokens.
 
 export interface Session {
-    id: number;  /// Identificador único de la sesión.
-    userId: number;  /// ID del usuario propietario de la sesión.
-    token: string;  /// Token opaco de refresco generado para renovar el acceso.
-    expiresAt: Date;  /// Fecha y hora exactas de expiración de la sesión.
+  id: number;
+  userId: number;
+  token: string;
+  expiresAt: Date;
+}
+
+export interface SessionActor {
+  id: number;
+  role: "ADMIN" | "PROFESSIONAL" | "CLIENT";
+}
+
+export interface RotatedSession {
+  session: Session;
+  actor: SessionActor;
 }
 
 export interface SessionRepository {
-    /// Crea y almacena una nueva sesión/refresh token para un usuario específico.
-    createSession(userId: number): Promise<Session>;
+  /// Crea una nueva sesión/refresh token para un usuario.
+  createSession(userId: number): Promise<Session>;
+
+  /// Consume atómicamente el refresh token actual y crea uno nuevo.
+  ///
+  /// Devuelve null si el token no existe, está revocado o expiró.
+  rotateSession(
+    tokenHash: string,
+    now: Date
+  ): Promise<RotatedSession | null>;
 }

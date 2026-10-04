@@ -9,5 +9,6 @@ const router = Router();
 // Ruta POST para el inicio de sesión de usuarios
 router.post("/login", IdentityController.login);
 router.get("/verify", IdentityController.verifyEmail);
+router.post("/refresh", IdentityController.refresh);
 
 export default router;
