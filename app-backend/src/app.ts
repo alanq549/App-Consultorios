@@ -1,6 +1,8 @@
+// ARCHIVO: src/app.ts
 import express from "express";
 import cors from "cors";
 import authRoutes from "./modules/auth/auth.routes";
+import identityRoutes from "@/modules/identity/http/identity.routes";
 import userRoutes from "@/modules/users/users.routes"
 import configRoutes from "@/modules/config/config.routes"
 import AppointmentRoutes from "@/modules/appointments/appointments.routes" 
@@ -31,6 +33,7 @@ app.use("/avatars", express.static(path.resolve(__dirname, "../public/img/avatar
 app.use("/certificates", express.static("public/certificates"));
 
 // Rutas
+app.use("/api/auth", identityRoutes);
 app.use("/api/auth", authRoutes);
 app.use("/api/admin", AdminRoutes);
 app.use("/api/specialties", SpecialtyRoutes);
