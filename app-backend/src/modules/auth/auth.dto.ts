@@ -48,3 +48,15 @@ export const ResetPasswordDTO = z.object({
   token: z.string(),
   newPassword: z.string().min(8),
 });
+
+
+export const RegisterResponseDTO = z.object({
+  id: z.number(),
+  email: z.string().email(),
+  role: z.enum(["ADMIN", "PROFESSIONAL", "CLIENT"]),
+  isVerified: z.boolean(),
+  createdAt: z.date(),
+  updatedAt: z.date(),
+});
+
+export type RegisterResponse = z.infer<typeof RegisterResponseDTO>;

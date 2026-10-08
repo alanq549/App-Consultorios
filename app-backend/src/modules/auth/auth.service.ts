@@ -1,10 +1,11 @@
+/// src/modules/auth/auth.service.ts
 import bcrypt from "bcrypt";
 import crypto from "crypto";
 import prisma from "@/shared/database/prisma";
 import { generateToken } from "./auth.tokens";
 import { Role } from "@prisma/client";
 import { sendVerificationEmail, sendResetPasswordEmail } from "./auth.mail";
-import { RegisterDTO } from "./auth.dto";
+import { RegisterDTO, RegisterResponse } from "./auth.dto";
 import { DEFAULT_AVATAR } from "@/core/config/media";
 
 import { z } from "zod";
@@ -103,7 +104,16 @@ export class AuthService {
         console.error("Error creando notificación de bienvenida:", err);
       }
 
-      return user;
+      const response: RegisterResponse = {
+        id: user.id,
+        email: user.email,
+        role: user.role,
+        isVerified: user.isVerified,
+        createdAt: user.createdAt,
+        updatedAt: user.updatedAt,
+      };
+
+      return response;
     } catch (err: any) {
       // Atrapa errores de Prisma y los lanza como AppError
       if (err.code === "P2002") {

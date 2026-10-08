@@ -1,3 +1,4 @@
+/// src/modules/auth/auth.controller.ts
 import { NextFunction, Request, Response } from "express";
 import { AuthService } from "./auth.service";
 import {
@@ -5,19 +6,23 @@ import {
   LoginDTO,
   ForgotPasswordDTO,
   ResetPasswordDTO,
+  RegisterResponseDTO
 } from "./auth.dto";
 import { AppError } from "@/shared/errors/AppError";
 
+
 export class AuthController {
   static async register(req: Request, res: Response, next: NextFunction) {
-    try {
-      const data = await RegisterDTO.parseAsync(req.body);
-      const user = await AuthService.register(data);
-      res.status(201).json(user);
-    } catch (err) {
-      next(err); // 👈 esto manda el error a tu errorHandler
-    }
+  try {
+    const data = await RegisterDTO.parseAsync(req.body);
+    const user = await AuthService.register(data);
+    const response = RegisterResponseDTO.parse(user);
+
+    res.status(201).json(response);
+  } catch (err) {
+    next(err);
   }
+}
 
   static async login(req: Request, res: Response, next: NextFunction) {
     try {
