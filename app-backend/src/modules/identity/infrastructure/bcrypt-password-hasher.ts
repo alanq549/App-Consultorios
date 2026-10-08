@@ -9,4 +9,9 @@ export class BcryptPasswordHasher implements PasswordHasher {
   async compare(plain: string, hashed: string): Promise<boolean> {
     return bcrypt.compare(plain, hashed);
   }
+
+  /// Genera un hash seguro para una contraseña en texto plano utilizando Bcrypt.
+  async hash(plain: string): Promise<string> {
+    return bcrypt.hash(plain, 10);
+  }
 }

@@ -10,5 +10,7 @@ const router = Router();
 router.post("/login", IdentityController.login);
 router.get("/verify", IdentityController.verifyEmail);
 router.post("/refresh", IdentityController.refresh);
+router.post("/forgot-password", IdentityController.forgotPassword);
+router.post("/reset-password", IdentityController.resetPassword);
 
 export default router;

@@ -56,3 +56,11 @@ export class InvalidCurrentPasswordError extends Error {
     this.name = "InvalidCurrentPasswordError";
   }
 }
+
+// Error lanzado cuando se intenta cambiar el correo electrónico a uno que ya está registrado por otro usuario.
+export class EmailAlreadyInUseError extends Error {
+  constructor() {
+    super("El correo ya está en uso");
+    this.name = "EmailAlreadyInUseError";
+  }
+}

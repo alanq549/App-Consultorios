@@ -30,25 +30,6 @@ export const RegisterDTO = z.discriminatedUnion("role", [
   }),
 ]);
 
-export const LoginDTO = z.object({
-  email: z.string().email(),
-  password: z.string(),
-});
-
-export const VerifyCodeDTO = z.object({
-  email: z.string().email(),
-  code: z.string().length(6),
-});
-
-export const ForgotPasswordDTO = z.object({
-  email: z.string().email(),
-});
-
-export const ResetPasswordDTO = z.object({
-  token: z.string(),
-  newPassword: z.string().min(8),
-});
-
 
 export const RegisterResponseDTO = z.object({
   id: z.number(),

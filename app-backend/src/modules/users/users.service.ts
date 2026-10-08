@@ -1,7 +1,6 @@
 // src/modules/users/users.service.ts
 import prisma from "@/shared/database/prisma";
 import { Role } from "@prisma/client";
-import bcrypt from "bcrypt";
 import { ClientProfileService } from "./clientprofile/clientprofile.service";
 import { ProfessionalProfileService } from "./professionalprofile/professionalprofile.service";
 import { AdminProfileService } from "./adminprofile/adminprofile.service";
@@ -40,80 +39,6 @@ export class UsersService {
     };
   }
 
-  ///cambio de correo
-  static async changeEmail(
-    userId: number,
-    currentPassword: string,
-    newEmail: string,
-  ) {
-    const user = await prisma.user.findUnique({
-      where: { id: userId },
-    });
-
-    if (!user) throw new Error("Usuario no existe");
-
-    const valid = await bcrypt.compare(currentPassword, user.password);
-
-    if (!valid) {
-      throw new Error("Contraseña incorrecta");
-    }
-
-    const exists = await prisma.user.findUnique({
-      where: { email: newEmail },
-    });
-
-    if (exists) {
-      throw new Error("El correo ya está en uso");
-    }
-
-    const updated = await prisma.user.update({
-      where: { id: userId },
-      data: {
-        email: newEmail,
-        isVerified: false,
-      },
-    });
-
-    return {
-      email: updated.email,
-      isVerified: updated.isVerified,
-    };
-  }
-
-  // cambio de password:
-  static async changePassword(
-    userId: number,
-    currentPassword: string,
-    newPassword: string,
-  ) {
-    const user = await prisma.user.findUnique({
-      where: { id: userId },
-    });
-
-    if (!user) throw new Error("Usuario no existe");
-
-    const valid = await bcrypt.compare(currentPassword, user.password);
-
-    if (!valid) {
-      throw new Error("Contraseña actual incorrecta");
-    }
-
-    const hashed = await bcrypt.hash(newPassword, 10);
-
-    await prisma.$transaction([
-      prisma.user.update({
-        where: { id: userId },
-        data: { password: hashed },
-      }),
-
-      prisma.refreshToken.updateMany({
-        where: { userId },
-        data: { isRevoked: true },
-      }),
-    ]);
-
-    return { message: "Contraseña actualizada" };
-  }
 
   // cambio de avatar
   static async updateAvatar(userId: number, role: Role, newAvatar: string) {

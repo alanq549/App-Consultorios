@@ -1,3 +1,6 @@
+// archivo: src/modules/identity/infrastructure/prisma/prisma-user-account-repository.ts
+//  Implementación del repositorio de cuentas de usuario utilizando Prisma como ORM para interactuar con la base de datos.
+
 import prisma from "@/shared/database/prisma";
 import type { UserAccountRepository } from "@/modules/identity/application/ports/user-account-repository";
 import type { UserAccount } from "@/modules/identity/domain/account";

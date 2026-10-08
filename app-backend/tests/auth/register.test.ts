@@ -21,7 +21,6 @@ import app from "@/app";
 // Mocks de servicios secundarios externos para evitar el envío real de correos o notificaciones durante las pruebas
 vi.mock("@/modules/auth/auth.mail", () => ({
   sendVerificationEmail: vi.fn(),
-  sendResetPasswordEmail: vi.fn(),
 }));
 
 vi.mock("@/modules/notifications/notifications.service", () => ({

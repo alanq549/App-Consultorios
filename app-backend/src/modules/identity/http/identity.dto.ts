@@ -18,3 +18,14 @@ export const VerifyEmailDTO = z.object({
 export const RefreshSessionDTO = z.object({
   refreshToken: z.string().min(1),
 });
+
+/// Valida que la petición de restablecimiento de contraseña contenga un correo electrónico válido.
+export const ForgotPasswordDTO = z.object({
+  email: z.string().email(),
+});
+
+/// Valida que la petición de restablecimiento de contraseña contenga un token no vacío y una nueva contraseña con al menos 8 caracteres.
+export const ResetPasswordDTO = z.object({
+  token: z.string(),
+  newPassword: z.string().min(8),
+});
