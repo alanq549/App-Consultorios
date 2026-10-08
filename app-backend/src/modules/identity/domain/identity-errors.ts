@@ -25,9 +25,34 @@ export class AlreadyVerifiedError extends Error {
   }
 }
 
+// / Error lanzado cuando un token de actualización (refresh token) es inválido o ha expirado.
 export class InvalidRefreshTokenError extends Error {
   constructor() {
     super("Refresh token inválido");
     this.name = "InvalidRefreshTokenError";
+  }
+}
+
+// Error lanzado cuando un token de restablecimiento de contraseña es inválido o ha expirado.
+export class InvalidPasswordResetTokenError extends Error {
+  constructor() {
+    super("Token inválido o expirado");
+    this.name = "InvalidPasswordResetTokenError";
+  }
+}
+
+// Error lanzado cuando se intenta cambiar la contraseña de un usuario que no existe en el sistema.
+export class UserAccountNotFoundError extends Error {
+  constructor() {
+    super("Usuario no existe");
+    this.name = "UserAccountNotFoundError";
+  }
+}
+
+// Error lanzado cuando la contraseña actual proporcionada por el usuario no coincide con la almacenada en el sistema.
+export class InvalidCurrentPasswordError extends Error {
+  constructor() {
+    super("Contraseña actual incorrecta");
+    this.name = "InvalidCurrentPasswordError";
   }
 }

@@ -1,10 +1,27 @@
 // src/modules/users/users.controller.ts
-import { Request, Response } from "express";
+import { NextFunction, Request, Response } from "express";
 import { UsersService } from "./users.service";
 import { ChangeEmailDTO, ChangePasswordDTO } from "./users.dto";
 import { UpdateClientProfileSchema } from "./clientprofile/clientprofile.dto";
 import { UpdateProfessionalProfileSchema } from "./professionalprofile/professionalprofile.dto";
 /* import { UpdateAdminProfileSchema } from "./adminprofile/adminprofile.dto"; */
+
+import { ChangePasswordUseCase } from "@/modules/identity/application/use-cases/change-password.use-case";
+import { PrismaUserAccountRepository } from "@/modules/identity/infrastructure/prisma/prisma-user-account-repository";
+import { BcryptPasswordHasher } from "@/modules/identity/infrastructure/bcrypt-password-hasher";
+import { PrismaPasswordChangeRepository } from "@/modules/identity/infrastructure/prisma/prisma-password-change-repository";
+import {
+  InvalidCurrentPasswordError,
+  UserAccountNotFoundError,
+} from "@/modules/identity/domain/identity-errors";
+import { AppError } from "@/shared/errors/AppError";
+
+
+const changePasswordUseCase = new ChangePasswordUseCase(
+  new PrismaUserAccountRepository(),
+  new BcryptPasswordHasher(),
+  new PrismaPasswordChangeRepository()
+);
 
 export class UsersController {
   ///
@@ -26,17 +43,32 @@ export class UsersController {
     res.json(result);
   }
 
-  static async changePassword(req: Request, res: Response) {
-    const { currentPassword, newPassword } = ChangePasswordDTO.parse(req.body);
-
-    const result = await UsersService.changePassword(
-      req.user!.id,
-      currentPassword,
-      newPassword,
+  
+  static async changePassword(req: Request, res: Response, next: NextFunction) {
+  try {
+    const { currentPassword, newPassword } = ChangePasswordDTO.parse(
+      req.body,
     );
 
-    res.json(result);
+    const result = await changePasswordUseCase.execute({
+      userId: req.user!.id,
+      currentPassword,
+      newPassword,
+    });
+
+    return res.status(200).json(result);
+  } catch (error) {
+    if (error instanceof InvalidCurrentPasswordError) {
+      return next(new AppError(error.message, 400));
+    }
+
+    if (error instanceof UserAccountNotFoundError) {
+      return next(new AppError(error.message, 404));
+    }
+
+    return next(error);
   }
+}
 
   static async updateAvatar(req: Request, res: Response) {
     if (!req.file) {
