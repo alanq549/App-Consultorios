@@ -4,7 +4,9 @@
 
 **Diseño:** `APPROVED` por Code Reviewer.
 
-**Implementación:** `READY FOR FINAL CODE REVIEW`; no marcar `CLOSED / APPROVED` hasta revisar la implementación.
+**Implementación:** `CLOSED / APPROVED`.
+
+La revisión final posterior a R4 y las validaciones de cierre concluyeron satisfactoriamente: `npm test` (11 archivos, 49 tests), `npx tsc --noEmit` y `npm run build`.
 
 Fase 1 está `CLOSED / APPROVED` en el commit `9ca3ca7`. Este documento registra el alcance y las decisiones aprobadas para la implementación de Identity/Auth. No decide Tenancy, memberships ni la semántica futura de roles, y no modifica Prisma, migraciones o contratos HTTP.
 
@@ -117,7 +119,7 @@ No crear carpetas o entidades vacías. Si el dominio actual no requiere un objet
 | `POST /api/auth/login` | `Login` | Mantener email/password y response `{ token, refreshToken, user: { id, email, role, isVerified } }`; errores no deben revelar si existe el usuario. |
 | `GET /api/auth/verify?token=...` | `VerifyEmail` | Mantener query y resultado con tokens/user según contrato actual. Token válido solo una vez y expirado a 10 minutos como comportamiento actual hasta nueva decisión. |
 | `POST /api/auth/refresh` | `RefreshSession` | Mantener `{ refreshToken }` y `{ token, refreshToken }`; refresh token previo no puede producir más de una rotación exitosa. |
-| `POST /api/auth/forgot-password` | `RequestPasswordReset` | Mantener request `{ email }` y respuesta genérica actual, exista o no la cuenta. Token almacenado como hash, TTL actual 15 minutos. |
+| `POST /api/auth/forgot-password` | `RequestPasswordReset` | Mantener request `{ email }` y respuesta genérica `{ message: "Si existe el usuario, se envió el correo" }`, exista o no la cuenta. Token almacenado como hash, TTL actual 15 minutos. |
 | `POST /api/auth/reset-password` | `ResetPassword` | Mantener `{ token, newPassword }` y respuesta actual; invalidar el token usado y revocar sesiones conforme al comportamiento actual. |
 | `PATCH /api/users/email` | `ChangeEmail` Identity, detrás del adapter existente | Mantener URL/body y exigir contraseña actual; corregir el orden actual de argumentos. Aplicar la política DECIDED de la sección 8. |
 | `PATCH /api/users/password` | `ChangePassword` Identity, detrás del adapter existente | Mantener URL/body; continuar exigiendo contraseña actual y revocar refresh tokens existentes como hoy. |
@@ -139,7 +141,20 @@ La sanitización de `POST /api/auth/register` es una corrección de seguridad ob
 ### Sesiones/refresh
 
 - Almacenar solo hash SHA-256 del refresh token; conservar generación aleatoria de alta entropía y TTL actual de 30 días.
-- Hacer revocación/rotación como una operación atómica de persistencia que garantice una sola rotación por refresh token concurrente.
+- Hacer revocación/rotación como una operación atómica de persistencia que garantice una sola rotación por refresh token concurrente. **Ya existe evidencia real de concurrencia:**
+  ```text
+  POST /api/auth/refresh
+      ↓
+  RefreshSessionUseCase
+      ↓
+  PrismaSessionRepository.rotateSession()
+      ↓
+  transacción
+      ↓
+  updateMany(isRevoked: false)
+      ↓
+  exactamente una rotación válida bajo concurrencia
+  ```
 - No agregar familia de tokens, claims de sesión ni tabla nueva sin decisión/requerimiento revisado; documentar su ausencia como límite conocido.
 - Logout/revoke-all no se agrega como nuevo endpoint en esta fase salvo aprobación.
 
@@ -148,7 +163,7 @@ La sanitización de `POST /api/auth/register` es una corrección de seguridad ob
 - Persistir hashes de tokens de un solo uso, expiración y marca de consumo dentro de una transacción coherente.
 - Corregir verificación para que no marque intentos usados fuera de la transacción que confirma `User.isVerified`.
 - Reset de contraseña conserva hash bcrypt, marca token usado y revoca refresh tokens en una única transacción.
-- Forgot-password devuelve una respuesta genérica cuando la entrega tiene éxito o la cuenta no existe; si falla SMTP para una cuenta existente, propaga error como en el flujo legacy.
+- Forgot-password devuelve una respuesta genérica tanto si la cuenta no existe como si la entrega falla para una cuenta existente; el error SMTP se captura y registra sin propagarse al HTTP para evitar revelar si la cuenta existe.
 - Rate limiting para forgot/resend no se inventa en este diseño; definirlo como decisión operativa antes de exponer nuevas rutas.
 
 ### Configuración y correo
@@ -156,19 +171,19 @@ La sanitización de `POST /api/auth/register` es una corrección de seguridad ob
 - `JWT_SECRET` ya tiene una comprobación fail-fast al importar `auth.tokens.ts`; no afirmar que Fase 2 introduce por primera vez ese comportamiento. Fase 2 debe consolidar su lectura/configuración y toda verificación de JWT bajo un único owner de Identity (`AccessTokenService`); el middleware no accede al secreto ni verifica JWT directamente. Probar ausencia/valor inválido en Identity, sin crear configuración Shared genérica.
 - La verificación de configuración de correo está duplicada en `auth.mail.ts`; consolidarla en el adapter sin cambiar variables existentes.
 - La configuración requerida debe validarse de forma determinista en el límite de Identity y probarse; no fallar de manera distinta según qué módulo importe primero.
-- Registro permanece en legacy y conserva su manejo best-effort de correo. En Identity, forgot-password propaga fallos de entrega al error handler HTTP; change-email también reporta el fallo después del commit. No se retorna una respuesta de éxito cuando el correo no pudo enviarse. El usuario puede volver a solicitar el correo mediante el flujo existente; no se añaden reintentos automáticos, endpoint nuevo ni outbox.
+- Registro permanece en legacy y conserva su manejo best-effort de correo. En Identity, forgot-password captura y registra fallos de entrega sin propagarlos al error handler HTTP para no revelar si la cuenta existe; change-email reporta el fallo después del commit. El usuario puede volver a solicitar el correo mediante el flujo existente; no se añaden reintentos automáticos, endpoint nuevo ni outbox.
 
 ## 7. Registro y coordinación con otros contextos — decisión DECIDED
 
 `register` actualmente crea dentro de una transacción: `User`, el perfil del rol, la relación inicial `ProfessionalSpecialty` cuando aplica, `CustomConfig` y `VerificationAttempt`. Después envía email y crea welcome notification con manejo best-effort. Cortar esa transacción cambia atomicidad y onboarding.
 
-### Decisión: mantener register como flujo legacy hasta resolver provisioning cross-context
+### Decisión: register queda fuera de Identity; migración a onboarding transversal posterior
 
-En Fase 2 no se crea `RegisterUser` ni se traslada el onboarding a Identity. `POST /api/auth/register` continúa atendido por el flujo legacy existente hasta que Profiles/Catalog/Preferences tengan contratos de provisioning aprobados y pueda revisarse una coordinación transaccional válida. No se cambia la transacción actual de alta.
+En Fase 2 no se crea `RegisterUser` ni se traslada el onboarding a Identity. `POST /api/auth/register` continúa atendido por `auth` legacy hasta un hito transversal posterior. La coordinación futura vivirá en una aplicación de onboarding, no en Identity ni en Profiles; onboarding coordina contracts de provisioning, pero no es owner de las entidades. La decisión y las precondiciones completas están en [ADR_REGISTRATION_ONBOARDING.md](ADR_REGISTRATION_ONBOARDING.md).
 
 **Qué significa “atomicidad preservada”:** las escrituras actualmente agrupadas en una única transacción Prisma —`User`, perfil, relación inicial `ProfessionalSpecialty` cuando aplica, `CustomConfig` y `VerificationAttempt`— siguen confirmándose o revirtiéndose juntas. No se parte esa unidad en operaciones independientes ni se expone `Prisma.TransactionClient` como contrato entre bounded contexts. Email y welcome notification permanecen side effects post-commit con el comportamiento de fallo actual; no se afirma que estén cubiertos por esa transacción.
 
-Esta decisión deja explícitamente fuera de Fase 2 la migración arquitectónica del registro, pero no deja abierta la decisión de si moverlo ahora: la respuesta es no. La corrección del response P1 se aplica en el adapter legacy con un DTO serializado que excluya `password`.
+La corrección del response P1 se mantiene en el adapter legacy con un DTO serializado que excluya `password`. No se altera el handler ni la transacción en Fase 2.
 
 La welcome notification conserva en el flujo legacy su llamada actual a `NotificationService`; no se crea un port nuevo en Identity ni se añade evento/outbox. Su migración se considera con Notifications en Fase 8.
 
@@ -184,7 +199,7 @@ La welcome notification conserva en el flujo legacy su llamada actual a `Notific
 | `PasswordReset` | Identity | `auth` legacy; después use case/repository Identity | Lectura/escritura limitada a reset-password. |
 | `ClientProfile` | Profiles | `users`/registro legacy | Identity no define ni persiste campos de perfil; register legacy mantiene provisioning actual. |
 | `ProfessionalProfile` | Profiles | `users`/registro legacy | Identity no define ni persiste campos de perfil; register legacy mantiene provisioning actual. |
-| `ProfessionalSpecialty` | `PENDING`: Profiles o Catalog, según su definición conceptual | Registro legacy / código actual | No asignar ownership definitivo ni trasladar la escritura en Fase 2. |
+| `ProfessionalSpecialty` | Profiles | Registro legacy / código actual | Profiles es owner de la asignación de especialidades del profesional y su ciclo de revisión; Catalog es owner de `Specialty`. La escritura del registro legacy es provisioning temporal. |
 | `CustomConfig` | Preferences | `users`/registro legacy | Identity no decide alcance tenant/personal; register legacy mantiene creación actual. |
 | `Notification` | Notifications | `notifications` vía `NotificationService` actual | Si un caso Identity necesita un mensaje, interacción explícita via adapter; no importar servicio interno en el caso de uso. Register legacy conserva su llamada actual. |
 
@@ -237,7 +252,7 @@ emitir nueva sesión según el response actual de verify
 ### Política de fallo y recuperación de correo — decisión DECIDED
 
 - El registro sigue en el handler legacy y conserva su best-effort actual: un fallo del correo se registra, pero no revierte la cuenta ya creada.
-- Forgot-password conserva el comportamiento legacy de propagar el fallo de entrega al error handler; no responde como éxito si el correo no se envió. Una solicitud nueva permite generar otro token. La diferencia de error entre cuenta inexistente y fallo SMTP puede revelar existencia durante una falla de correo; se acepta mantener este comportamiento para no ocultar una entrega fallida y no ampliar el alcance con outbox.
+- Forgot-password ya no propaga el fallo de entrega al error handler HTTP. Se actualizó la política para priorizar la privacidad y no revelar la existencia de la cuenta en caso de un fallo SMTP. El error es capturado y registrado de forma segura (sin incluir PII) por el caso de uso, y el controller devuelve un 200 con el mensaje genérico acordado ("Si existe el usuario, se envió el correo") tanto si la cuenta no existe como si falla el envío. Una solicitud nueva permite generar otro token.
 - Change-email confirma la transacción antes del envío y propaga el fallo al cliente. Repetir el endpoint con la contraseña actual y el mismo correo invalida el intento previo y genera un token nuevo.
 - No hay reintentos automáticos, outbox ni endpoint nuevo en Fase 2. El cliente recibe un error del servidor ante un fallo SMTP después de commit; el detalle interno no se expone.
 
@@ -255,15 +270,15 @@ emitir nueva sesión según el response actual de verify
 | Actual | Acción propuesta en Fase 2 | Destino/compatibilidad |
 |---|---|---|
 | `modules/auth/auth.routes.ts` y `auth.controller.ts` | Adaptar y mover responsabilidad HTTP gradualmente | `modules/identity/http`; conservar `/api/auth` y DTOs de transporte actuales. |
-| `modules/auth/auth.service.ts` | Dividir/migrar solo casos de identidad aprobados; conservar register temporalmente | Register queda en adapter legacy; los demás use cases se migran por separado. |
+| `modules/auth/auth.service.ts` | Mantener solo el registro durante Fase 2 | No mover mecánicamente `register` a Identity; su destino es el coordinador transversal de onboarding según [ADR_REGISTRATION_ONBOARDING.md](ADR_REGISTRATION_ONBOARDING.md). |
 | `modules/auth/auth.tokens.ts` | Migrar | Adapter Identity para access token; mantener claims/TTL compatibles hasta aprobar lo contrario. |
 | `modules/auth/auth.types.ts` | Dividir/retirar duplicados tras migrar consumers | Payload privado Identity; `ActorContext` compartido sigue siendo contrato interno diferente. |
-| `modules/auth/auth.dto.ts` | Mover/ajustar solo para preservar request actuales | Schemas HTTP Identity; DTO público de registro no incluye password hash. |
+| `modules/auth/auth.dto.ts` | Mantener el DTO de register en su adapter actual | Conservar el contrato HTTP; el response público no incluye password hash. |
 | `modules/auth/auth.mail.ts` | Adaptar como Nodemailer adapter tras `MailSender` port | Eliminar condición de config duplicada cuando se refactorice; no integrar mail en Shared. |
 | `modules/users/users.controller.ts` y routes | Mantener routes como adapters; delegar email/password a Identity | No mover profile/avatar/me fuera de Users en Fase 2. |
 | Métodos email/password de `UsersService` | Migrar autoridad a use cases Identity | Mantener compatibilidad HTTP; eliminar duplicación solo cuando todos los callers migren. |
 | Prisma models `User`, `RefreshToken`, `VerificationAttempt`, `PasswordReset` | Mantener sin cambios de schema | Repositories de infraestructura Identity consumen instancia `shared/database`. |
-| `NotificationService.notifyWelcome` | Mantener solo en registro legacy | No importar desde nuevos use cases Identity; Notifications se migra en Fase 8. |
+| `NotificationService.notifyWelcome` | Mantener solo en registro legacy durante Fase 2 | El futuro coordinador de onboarding usa un contrato explícito de Notifications post-commit; no importar el servicio interno desde Identity. Notifications se migra en Fase 8. |
 | `core/config/media.ts`, perfiles, `CustomConfig`, Specialty | No migrar en Fase 2 | Mantener sus propietarios actuales/transitorios hasta Fases 4/5/9. |
 
 ## 10. Orden recomendado de implementación
@@ -285,8 +300,8 @@ emitir nueva sesión según el response actual de verify
 5. **Mantener registro legacy y sanitizar respuesta**
    - Preservar la transacción de onboarding actual; no crear `RegisterUser` ni mover tablas de Profiles/Preferences/Catalog a Identity.
    - Corregir el DTO de respuesta para excluir hash/password y probarlo en HTTP.
-6. **Retirar Auth legacy**
-   - Solo cuando no haya routes/imports/callers restantes y los contratos se hayan migrado.
+6. **Diferir la extracción de onboarding**
+   - No retirar `auth` ni mover register como parte de Fase 2. Seguir el hito y los gates de [ADR_REGISTRATION_ONBOARDING.md](ADR_REGISTRATION_ONBOARDING.md), después de definir contratos mínimos de provisioning de los owners participantes.
 7. **Validar**
    - build/type-check;
    - tests use-case + integración de repositorios/transacciones y auth HTTP;
@@ -298,35 +313,36 @@ emitir nueva sesión según el response actual de verify
 
 ### Riesgos
 
-- **P1 confirmado:** exposición del hash de password desde register; debe quedar eliminado y probado antes de aprobar Fase 2.
-- **P1 de integridad si se parte la transacción legacy:** atomicidad de User+perfil+specialty+config+verification.
-- **P1 de sesión:** refresh paralelo puede producir múltiples rotaciones porque la revocación y creación no se aplican actualmente como una operación condicional/atómica.
-- **P2 confirmado:** argumentos de ChangeEmail invertidos.
-- **P2:** verificación actual marca intentos usados antes de completar de forma atómica la verificación del usuario.
-- **P2:** logs de login incluyen email y distinguen usuario no encontrado vs contraseña inválida; no loggear secretos y revisar minimización de PII.
-- **P2 — límite aceptado:** el error SMTP en forgot-password puede distinguir una cuenta existente cuando el correo falla; se conserva la propagación legacy para no devolver éxito ficticio.
-- **P2 confirmado en baseline:** `auth.mail.ts` duplica el guard de configuración; el middleware y `auth.tokens.ts` actualmente tienen autoridad duplicada sobre la verificación JWT. Fase 2 elimina esta duplicidad mediante `AccessTokenService`.
+- **P1 resuelto:** register devuelve un DTO explícito sin hash ni credenciales, con prueba de integración HTTP.
+- **P1 de integridad controlado:** la transacción legacy no se divide; la futura extracción de onboarding preservará atomicidad según [ADR_REGISTRATION_ONBOARDING.md](ADR_REGISTRATION_ONBOARDING.md).
+- **P1 de sesión resuelto:** la rotación condicional transaccional y la prueba concurrente garantizan una sola rotación exitosa por refresh token.
+- **P2 resuelto:** el mapping de argumentos de ChangeEmail está corregido y cubierto por pruebas.
+- **P2 resuelto:** verify consume el intento y marca la cuenta verificada en una transacción; reset consume el token, actualiza la contraseña y revoca sesiones atómicamente.
+- **P2 mitigado:** respuestas de login usan el mismo error para usuario inexistente, contraseña incorrecta y cuenta sin verificar; no se registran credenciales ni tokens.
+- **P2 resuelto (R4):** el mailer fallido de forgot-password se registra sin propagar el error HTTP; cuenta inexistente y fallo SMTP obtienen el mismo `200` y mensaje genérico, verificado por prueba HTTP.
+- **P2 residual de baseline, no bloqueante:** el mailer de registro legacy mantiene su guard de configuración; los mailers de Identity validan configuración requerida. La validación JWT queda centralizada en `AccessTokenService`.
 - **DEFERRED:** idempotencia/retry/outbox de side effects; tenancy, membership, roles definitivos y modificación de schema.
 
 ### Criterios de aceptación
 
-- [ ] contratos HTTP existentes se conservan, excepto la redacción explícita del response de register para excluir cualquier hash/credencial;
-- [ ] ningún response de Identity contiene password, password hash, tokens de operación almacenados o datos Prisma accidentales;
-- [ ] errores de login no permiten diferenciar por respuesta la inexistencia de usuario y contraseña incorrecta;
-- [ ] dominio/aplicación de Identity no importan Express, Prisma ni Nodemailer;
-- [ ] `JWT_SECRET` tiene un único owner en Identity; el middleware usa `AccessTokenService.verify()` y no lee el secreto ni llama `jwt.verify()`;
-- [ ] Identity valida estructuralmente los claims antes de que el middleware construya el `ActorContext` de `shared`;
-- [ ] persistencia de User/sesiones/tokens se hace en adapters Identity sin cambio de schema;
-- [ ] refresh rotation es atómica bajo concurrencia; cada token permite como máximo una rotación exitosa;
-- [ ] verification/reset son one-time y sus escrituras correlacionadas son transaccionales;
-- [ ] cambio de email conserva URL/body, corrige el mapping y tiene política aprobada de re-verificación;
-- [ ] contraseña actual se exige para cambio autenticado y el cambio/reset revoca refresh tokens conforme a la política actual aprobada;
-- [ ] `JWT_SECRET` y configuración de correo tienen validación determinista en Identity y pruebas; no se introduce una abstracción global en `shared`;
-- [ ] registro no escribe directamente perfiles, Preferences, Catalog o Notifications desde el núcleo Identity;
-- [ ] register permanece legacy por decisión; conserva su atomicidad actual y su response no contiene password/hash;
-- [ ] el flujo ChangeEmail aplica la política DECIDED de re-verificación, revocación de refresh y limitación explícita de access JWT stateless;
-- [ ] `ADMIN`/membership/tenancy no se redefinen;
-- [ ] no hay cambios Prisma/schema/migrations ni endpoints nuevos;
-- [ ] build, pruebas y smoke tests relevantes pasan.
+- [x] contratos HTTP existentes se conservan, excepto la redacción explícita del response de register para excluir cualquier hash/credencial;
+- [x] ningún response de Identity contiene password, password hash, tokens de operación almacenados o datos Prisma accidentales;
+- [x] errores de login no permiten diferenciar por respuesta la inexistencia de usuario y contraseña incorrecta;
+- [x] dominio/aplicación de Identity no importan Express, Prisma ni Nodemailer;
+- [x] `JWT_SECRET` tiene un único owner en Identity; el middleware usa `AccessTokenService.verify()` y no lee el secreto ni llama `jwt.verify()`;
+- [x] Identity valida estructuralmente los claims antes de que el middleware construya el `ActorContext` de `shared`;
+- [x] persistencia de User/sesiones/tokens se hace en adapters Identity sin cambio de schema;
+- [x] refresh rotation es atómica bajo concurrencia; cada token permite como máximo una rotación exitosa;
+- [x] verification/reset son one-time y sus escrituras correlacionadas son transaccionales;
+- [x] cambio de email conserva URL/body, corrige el mapping y tiene política aprobada de re-verificación;
+- [x] contraseña actual se exige para cambio autenticado y el cambio/reset revoca refresh tokens conforme a la política actual aprobada;
+- [x] `JWT_SECRET` tiene un único owner y validación runtime en Identity; los mailers validan su configuración requerida y cuentan con pruebas; no se introduce una abstracción global en `shared`;
+- [x] registro no escribe directamente perfiles, Preferences, Catalog o Notifications desde el núcleo Identity;
+- [x] register permanece legacy por decisión; conserva su atomicidad actual y su response no contiene password/hash;
+- [x] la futura migración de register sigue [ADR_REGISTRATION_ONBOARDING.md](ADR_REGISTRATION_ONBOARDING.md), fuera del alcance de Identity/Fase 2;
+- [x] el flujo ChangeEmail aplica la política DECIDED de re-verificación, revocación de refresh y limitación explícita de access JWT stateless;
+- [x] `ADMIN`/membership/tenancy no se redefinen;
+- [x] no hay cambios Prisma/schema/migrations ni endpoints nuevos;
+- [x] build, pruebas y smoke tests relevantes pasan.
 
-**Siguiente gate:** Code Reviewer debe revisar la implementación, incluyendo el response DTO de registro sin hash, la política DECIDED de cambio de email y la propagación de fallos de correo. Tras su aprobación y la validación funcional pendiente, actualizar el estado a `CLOSED / APPROVED`.
+**Fase 2 — Identity: `CLOSED / APPROVED`.** El onboarding/register sigue siendo un hito transversal posterior y se rige por [ADR_REGISTRATION_ONBOARDING.md](ADR_REGISTRATION_ONBOARDING.md).

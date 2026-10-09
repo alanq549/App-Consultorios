@@ -11,6 +11,7 @@ export class NodemailerPasswordResetMailer
   private readonly mailFrom: string;
 
   constructor() {
+    //  Inicializa el transporte de correo utilizando Nodemailer con la configuración proporcionada en las variables de entorno.
     const { MAIL_USER, MAIL_PASS, MAIL_FROM } = process.env;
 
     // Lanza un error al inicializar si faltan las credenciales de correo en las variables de entorno
@@ -18,6 +19,7 @@ export class NodemailerPasswordResetMailer
       throw new Error("Configuración de correo incompleta");
     }
 
+    // Guarda la dirección de correo del remitente para usarla en los correos enviados
     this.mailFrom = MAIL_FROM;
 
     // Configura el transporte de Nodemailer para el envío de correos vía Gmail

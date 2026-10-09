@@ -55,7 +55,12 @@ export class ForgotPasswordUseCase {
     // Construye el enlace de restablecimiento con el token plano enviado como parámetro
     const resetUrl = `${frontendUrl}/reset-password?token=${token}`;
 
-    // A failed delivery must reach the HTTP error handler rather than report success.
-    await this.passwordResetMailer.sendResetPasswordEmail(user.email, resetUrl);
+    // Registramos el error de forma segura pero no lo propagamos
+    // para evitar revelar si el usuario existe o no.
+    try {
+      await this.passwordResetMailer.sendResetPasswordEmail(user.email, resetUrl);
+    } catch (error) {
+      console.error("[Identity] Error enviando email de recuperación:", error);
+    }
   }
 }

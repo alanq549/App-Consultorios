@@ -193,9 +193,11 @@ Separar autenticación, credenciales y sesiones de la creación y actualización
 
 **Diseño:** `APPROVED` por Code Reviewer.
 
-**Estado de implementación:** `READY FOR FINAL CODE REVIEW`; Fase 2 aún no se declara `CLOSED / APPROVED`.
+**Estado:** `CLOSED / APPROVED`.
 
-El alcance y las decisiones están documentados en [FASE2_IDENTITY.md](FASE2_IDENTITY.md). La implementación conserva register en legacy, sanea su DTO, aplica la política DECIDED de cambio de email y propaga fallos de entrega de correo en los casos de uso de Identity. Falta la revisión final del código y la validación funcional antes del cierre.
+La revisión final posterior a R4 quedó aprobada. Pasaron `npm test` (11 archivos, 49 tests), `npx tsc --noEmit` y `npm run build`; el estado y la checklist están registrados en [FASE2_IDENTITY.md](FASE2_IDENTITY.md).
+
+La extracción futura de `POST /api/auth/register` es un hito transversal posterior, no parte de Fase 2. Su ownership, coordinador, atomicidad y gates se definen en [ADR_REGISTRATION_ONBOARDING.md](ADR_REGISTRATION_ONBOARDING.md).
 
 ### Contexto propietario
 
@@ -561,7 +563,7 @@ Esta sección no implementa ninguna fase. Define qué decisiones deben estar cer
 |---|---|
 | Fase 0 | Evidencia del baseline, clasificación de riesgos, estado de rutas, operaciones runtime/seed/cascade, y decisiones pendientes documentadas. El estado final debe ser `READY FOR FINAL REVIEW` hasta la aprobación del reviewer. |
 | Fase 1 — Shared kernel | Se rige por el alcance redefinido en [FASE1_SHARED_KERNEL.md](FASE1_SHARED_KERNEL.md): contrato mínimo del actor y validación de claims actuales antes de crearlo; no congela tenant, memberships, permisos ni semántica futura de roles. No incluye `shared/events/`, configuración validada global al arranque ni separación ejecutable de errores de dominio/HTTP. La definición completa de claims/sesiones JWT es precondición de Fase 2. |
-| Fase 2 — Identity | Diseño aprobado en [FASE2_IDENTITY.md](FASE2_IDENTITY.md); completar revisión final de implementación. Register permanece legacy con atomicidad preservada y response DTO sin hash; cambio de email y fallos de entrega siguen las políticas decididas; JWT/sesión conservan el contrato y rol legacy. El shape tenant/membership y semántica futura de roles pueden permanecer pendientes, pero no se debe introducir autorización tenant incompleta. |
+| Fase 2 — Identity | Diseño aprobado en [FASE2_IDENTITY.md](FASE2_IDENTITY.md); completar revisión final de implementación. Register permanece legacy con atomicidad preservada y response DTO sin hash; su extracción se rige por el hito transversal de [ADR_REGISTRATION_ONBOARDING.md](ADR_REGISTRATION_ONBOARDING.md), después de definir contratos mínimos de provisioning. Cambio de email y fallos de entrega siguen las políticas decididas; JWT/sesión conservan el contrato y rol legacy. El shape tenant/membership y semántica futura de roles pueden permanecer pendientes, pero no se debe introducir autorización tenant incompleta. |
 | Fase 3 — Tenancy | Deben estar cerrados como mínimo: significado de `ADMIN`; membership simple o múltiple; estrategia de tenant resolution; ownership inicial de perfiles; y tratamiento de actores públicos/guest. También debe definirse qué superficies son tenant-owned antes de aplicar aislamiento. |
 | Fase 4 — Profiles | Deben estar definidos ownership global/tenant de clientes y profesionales, posibilidad de múltiples roles, lifecycle de `ProfessionalProfile`, aprobación de `ProfessionalSpecialty`, ownership/aprobación/visibilidad de `Certificate` y datos públicos de perfiles. |
 | Fase 5 — Catalog | Deben estar definidos catálogo global versus tenant-owned, propiedad de `Specialty`, significado conceptual de `ProfessionalSpecialty`, regla para servicios reservables y efecto de cambiar/desactivar precio, duración, specialty o servicio con citas futuras. |

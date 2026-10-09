@@ -137,8 +137,7 @@ export class IdentityController {
       await forgotPasswordUseCase.execute(email);
 
       return res.status(200).json({
-        message:
-          "Solicitud recibida. Si la cuenta existe, recibirás instrucciones; si no llegan, vuelve a solicitar el restablecimiento.",
+        message: "Si existe el usuario, se envió el correo",
       });
     } catch (error) {
       return next(error);

@@ -8,6 +8,14 @@ export class NodemailerVerificationMailer implements VerificationMailer {
   private transporter;
 
   constructor() {
+    /// Inicializa el transporte de correo utilizando Nodemailer con la configuración proporcionada en las variables de entorno.
+    const { MAIL_USER, MAIL_PASS } = process.env;
+
+    // Verifica que las variables de entorno necesarias para la autenticación del correo estén presentes.
+    if (!MAIL_USER || !MAIL_PASS) {
+      throw new Error("Configuración de correo incompleta");
+    }
+
     // Inicializa el transporte de correo dinámicamente con variables de entorno o valores por defecto para SMTP
     this.transporter = nodemailer.createTransport({
       host: process.env.SMTP_HOST || "smtp.gmail.com",

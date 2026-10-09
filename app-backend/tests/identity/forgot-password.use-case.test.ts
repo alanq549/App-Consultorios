@@ -135,7 +135,7 @@ describe("ForgotPasswordUseCase", () => {
     ).not.toHaveBeenCalled();
   });
 
-  it("propaga el error si el envío del correo falla", async () => {
+  it("no propaga el error al HTTP si el envío del correo falla", async () => {
     userAccountRepository.findByEmail.mockResolvedValue({
       id: 1,
       email: "user@example.com",
@@ -153,9 +153,7 @@ describe("ForgotPasswordUseCase", () => {
       new Error("SMTP connection failed"),
     );
 
-    await expect(useCase.execute("user@example.com")).rejects.toThrow(
-      "SMTP connection failed",
-    );
+    await expect(useCase.execute("user@example.com"),).resolves.toBeUndefined();
 
     expect(passwordResetRepository.create).toHaveBeenCalledTimes(1);
     expect(
