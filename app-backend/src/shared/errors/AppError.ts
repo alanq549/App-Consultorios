@@ -1,4 +1,4 @@
-/// ARCHIVO: src/core/errors/AppError.ts
+/// ARCHIVO: src/shared/errors/AppError.ts
 /// Clase personalizada para manejar errores operativos controlados en la aplicación.
 
 export class AppError extends Error {

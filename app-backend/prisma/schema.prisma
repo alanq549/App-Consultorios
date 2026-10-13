@@ -31,7 +31,53 @@ model User {
   professionalProfile ProfessionalProfile?
   customConfig        CustomConfig?
 
+  tenantMemberships TenantMembership[]
+
   @@index([role])
+}
+
+
+model Tenant {
+  id        Int          @id @default(autoincrement())
+  name      String
+  slug      String       @unique
+  status    TenantStatus @default(ACTIVE)
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+
+  memberships TenantMembership[]
+
+  @@index([status])
+}
+
+model TenantMembership {
+  id        Int              @id @default(autoincrement())
+  userId    Int
+  tenantId  Int
+  role      TenantRole
+  status    MembershipStatus @default(ACTIVE)
+  joinedAt  DateTime         @default(now())
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, tenantId])
+  @@index([tenantId, status])
+  @@index([userId, status])
+}
+
+enum TenantStatus {
+  ACTIVE
+}
+
+enum TenantRole {
+  OWNER
+  MEMBER
+}
+
+enum MembershipStatus {
+  ACTIVE
+  SUSPENDED
 }
 
 model VerificationAttempt {

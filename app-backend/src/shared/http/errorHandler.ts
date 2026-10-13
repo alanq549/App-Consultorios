@@ -1,4 +1,4 @@
-/// ARCHIVO: src/core/errors/errorHandler.ts
+/// ARCHIVO: src/shared/http/errorHandler.ts
 /// Middleware global de Express para capturar y formatear todos los errores del sistema.
 
 import { Request, Response, NextFunction } from "express";

@@ -253,9 +253,12 @@ El actual `auth.service.ts` contiene registro, perfiles, configuración, tokens,
 
 ## Fase 3 — Tenancy y autorización contextual
 
+El diseño detallado, la matriz real de rutas/jobs y las decisiones aprobadas del primer vertical slice están en [FASE3_TENANCY.md](FASE3_TENANCY.md). Estado actual: `READY FOR REVIEW`; no iniciar cambios de código/Prisma hasta que el diseño figure `APPROVED`.
+
 ### Objetivo
 
-Introducir aislamiento de datos y autorización por tenant antes de migrar los módulos operativos.
+- **Primer vertical slice:** Establecer y validar exclusivamente la frontera de contexto y autorización tenant (resolución del selector `X-Tenant-ID` de transporte inicial, verificación de membresía M:N activa, autorización contextual y denegación horizontal cross-tenant sobre el propio contexto tenant).
+- **Fase 3 completa / aislamiento general:** Aislamiento incremental de datos en los módulos operativos antes de habilitar el uso SaaS en producción. El primer slice **no demuestra** aislamiento de filas en tablas operativas (`Appointment`, `Service`, `Schedule`, perfiles, catálogo, cron); estas superficies permanecen formalmente pendientes y se migrarán en slices posteriores independientes.
 
 ### Contexto propietario
 
@@ -263,42 +266,45 @@ Introducir aislamiento de datos y autorización por tenant antes de migrar los m
 src/modules/tenancy/
 ```
 
-### Modelo objetivo mínimo
+### Modelo objetivo mínimo del primer slice
 
 ```text
-Tenant
-TenantMembership
-User
+Tenant (representa consultorio o clínica médica individual; status inicial ACTIVE)
+TenantMembership (relación asociativa M:N, unique(userId, tenantId), status: ACTIVE | SUSPENDED, roles: OWNER | MEMBER)
+User (identidad global de referencia en Identity)
 ```
 
-La membresía debe permitir que el rol sea definido dentro de un tenant. `User.role` no debe ser la única fuente de autorización SaaS.
+`Tenant` representa una frontera independiente de operación y autorización sin organizaciones jerárquicas ni sucursales en esta etapa. `User` permanece como identidad global. `User.role === ADMIN` actúa estrictamente como Platform Operator global transicional y **no concede pertenencia ni bypass** en rutas tenant-protected.
 
-### Alcance
+### Alcance del primer vertical slice
 
-- resolución del tenant;
-- verificación de pertenencia;
-- `TenantContext`;
-- claims de tenant;
-- middleware/guard;
-- matriz de propiedad de datos;
-- contratos de repositorios tenant-aware.
+- Resolución de tenant a partir del selector de transporte inicial (`X-Tenant-ID`).
+- Verificación de pertenencia contextual activa (`TenantMembership.status === ACTIVE`).
+- Construcción de `TenantContext` inmutable validado en runtime; el JWT de Identity solo autentica al actor.
+- Política de autorización contextual que rechaza acceso sin membresía activa en el tenant solicitado.
+- Endpoint técnico de validación conceptual: `GET /api/tenancy/current` con política de respuesta uniforme para mitigar enumeración de tenants.
+- Aprovisionamiento inicial mediante mecanismo interno/controlado para pruebas y bootstrap (sin modificar `POST /api/auth/register` ni crear registro público).
+- Clasificación rigurosa de rutas/jobs reales; las superficies fuera del slice permanecen explícitamente pendientes y no se declaran tenant-safe.
 
-### Criterios de aceptación
+### Criterios de aceptación del primer vertical slice
 
-- [ ] una petición protegida no puede operar sin tenant cuando el recurso es tenant-owned;
-- [ ] el tenant enviado por header o URL se verifica contra la membresía;
-- [ ] el tenant no se acepta únicamente porque el cliente lo envió;
-- [ ] los repositorios tenant-owned exigen `tenantId`;
-- [ ] existen pruebas de aislamiento entre dos tenants;
-- [ ] los jobs reciben `tenantId` cuando ejecutan lógica tenant-owned;
-- [ ] los logs pueden identificar tenant sin exponer información sensible.
+> **Nota de estado:** Las decisiones de diseño y gates conceptuales del primer slice están cerrados y aprobados por Producto. Los ítems pendientes `[ ]` corresponden estrictamente a la validación de la futura implementación técnica tras recibir `APPROVED`.
 
-### Bloqueadores
+- [x] Modelo conceptual `Tenant` y `TenantMembership` con restricción `unique(userId, tenantId)` y lifecycle mínimo aprobados por Producto.
+- [ ] Selector `X-Tenant-ID` configurado como transporte inicial sin asumir permanencia irreversible de UX.
+- [ ] El guard/middleware verifica `TenantMembership` sin confiar en `User.role` ni asumir que el header otorga autorización por sí mismo.
+- [ ] Tests con dos tenants (A y B) cubren: acceso válido con membresía activa, rechazo cross-tenant (miembro de A solicita B), rechazo por membresía suspendida, rechazo a `ADMIN` global sin membresía, y selector ausente/inválido.
+- [ ] `GET /api/tenancy/current` implementado bajo contrato seguro con mitigación de enumeración de tenants (error uniforme HTTP 403 con `{ "message": "Tenant context unavailable or access denied" }` alineado a `errorHandler.ts`).
+- [ ] Todas las rutas/jobs del backend están inventariados; las superficies fuera del slice permanecen explícitamente pendientes.
+- [ ] No se alteran contratos HTTP legacy ni se tocan modelos operativos existentes en este slice.
 
-- cualquier endpoint que pueda consultar datos de otro tenant;
-- filtros tenant aplicados solo en controllers;
-- `tenantId` opcional en repositorios críticos;
-- usar `User.role` global para autorizar acciones dentro de todos los tenants.
+### Bloqueadores del slice
+
+- cualquier endpoint que permita acceso a datos de otro tenant;
+- considerar el header como autorización de pertenencia sin verificar base de datos;
+- otorgar bypass o permisos contextuales basados en `User.role === ADMIN`;
+- respuestas HTTP que permitan la enumeración de tenants existentes a actores no autorizados;
+- declarar el backend o módulos operativos como tenant-safe antes de sus propios slices.
 
 ---
 
