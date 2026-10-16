@@ -11,7 +11,7 @@ export type TenantContextRecord = {
     id: number;
     name: string;
     slug: string;
-    status: "ACTIVE";
+    status: "ACTIVE" | "INACTIVE";
   };
   /// Detalles del rol y estado del usuario dentro del tenant.
   membership: {

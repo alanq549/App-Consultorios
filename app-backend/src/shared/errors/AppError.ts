@@ -4,14 +4,19 @@
 export class AppError extends Error {
   /// Código de estado HTTP (ej. 400, 404, 403).
   statusCode: number;
+  
+  /// Código de error opcional para identificar el tipo de error (ej. "USER_NOT_FOUND").
+  code?: string;
 
   /// Indica que es un error previsto/controlado por la aplicación.
   isOperational: boolean;
 
-  constructor(message: string, statusCode = 400) {
+  constructor(message: string, statusCode = 400, code?: string) {
     super(message);
     this.statusCode = statusCode;
     this.isOperational = true;
+    this.code = code;
+
 
     // Captura el rastro de la pila (stack trace) excluyendo este constructor.
     Error.captureStackTrace(this, this.constructor);

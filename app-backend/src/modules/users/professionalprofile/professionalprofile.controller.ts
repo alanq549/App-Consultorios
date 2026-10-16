@@ -11,12 +11,17 @@ import {
 
 export class ProfessionalProfileController {
   // obtener perfil profesional público por ID
-  static async getPublic(req: Request, res: Response, next: NextFunction) {
+  static async getPublic(
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ) {
     try {
       const { id } = GetProfessionalProfileParamsSchema.parse(req.params);
 
       const profile = await ProfessionalProfileService.getPublicById(
         Number(id),
+        res.locals.tenantId as number,
       );
 
       if (!profile) {
@@ -24,22 +29,24 @@ export class ProfessionalProfileController {
           message: "Perfil profesional no encontrado",
         });
       }
-      if (profile.verificationStatus !== "APPROVED") {
-        return res.status(403).json({
-          message: "Perfil profesional no aprobado",
-        });
-      }
 
-      res.json(profile);
+      return res.json(profile);
     } catch (err) {
       next(err);
     }
   }
 
-  static async getAllPublic(req: Request, res: Response, next: NextFunction) {
+  static async getAllPublic(
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ) {
     try {
-      const profiles = await ProfessionalProfileService.getAllPublic();
-      res.json(profiles);
+      const profiles = await ProfessionalProfileService.getAllPublic(
+        res.locals.tenantId as number,
+      );
+
+      return res.json(profiles);
     } catch (err) {
       next(err);
     }

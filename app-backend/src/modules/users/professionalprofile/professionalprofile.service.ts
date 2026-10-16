@@ -86,82 +86,171 @@ export class ProfessionalProfileService {
   }
 
   static async getPublicById(
-    profileId: number,
-  ): Promise<PublicProfessionalProfile | null> {
-    const profile = await prisma.professionalProfile.findUnique({
-      where: { id: profileId },
-      include: {
-        specialties: {
-          where: { status: SpecialtyStatus.APPROVED },
-          include: { specialty: true },
-        },
-        certificates: true,
-        socialLinks: true,
+  profileId: number,
+  tenantId: number,
+): Promise<PublicProfessionalProfile | null> {
+  const affiliation = await prisma.professionalTenantAffiliation.findFirst({
+    where: {
+      professionalProfileId: profileId,
+      tenantId,
+      status: "ACTIVE",
+      tenant: {
+        is: { status: "ACTIVE" },
       },
-    });
+      professionalProfile: {
+        is: {
+          user: {
+            is: {
+              tenantMemberships: {
+                some: {
+                  tenantId,
+                  status: "ACTIVE",
+                },
+              },
+            },
+          },
+        },
+      },
+      revisions: {
+        some: { status: "APPROVED" },
+      },
+    },
+    select: {
+      professionalProfile: {
+        select: {
+          id: true,
+          name: true,
+          lastName: true,
+          avatar: true,
+          ratingAvg: true,
+          ratingCount: true,
+          verificationStatus: true,
+        },
+      },
+      revisions: {
+        where: { status: "APPROVED" },
+        orderBy: { revisionNumber: "desc" },
+        take: 1,
+        select: {
+          description: true,
+          socialLinks: {
+            select: {
+              type: true,
+              url: true,
+            },
+          },
+        },
+      },
+    },
+  });
 
-    if (!profile) return null;
-
-    return {
-      id: profile.id,
-      name: profile.name,
-      lastName: profile.lastName,
-      avatar: profile.avatar,
-      description: profile.description,
-      verificationStatus: profile.verificationStatus,
-
-      ratingAvg: profile.ratingAvg,
-      ratingCount: profile.ratingCount,
-
-      socialLinks: profile.socialLinks,
-
-      certificates: profile.certificates.map((c) => ({
-        title: c.name,
-        fileUrl: c.fileUrl,
-      })),
-
-      specialties: profile.specialties.map((ps) => ({
-        id: ps.specialty.id,
-        name: ps.specialty.name,
-        description: ps.specialty.description,
-      })),
-    };
+  if (!affiliation || affiliation.revisions.length === 0) {
+    return null;
   }
+
+  const profile = affiliation.professionalProfile;
+  const revision = affiliation.revisions[0];
+
+  return {
+    id: profile.id,
+    name: profile.name,
+    lastName: profile.lastName,
+    avatar: profile.avatar,
+    description: revision.description,
+    verificationStatus: profile.verificationStatus,
+    ratingAvg: 0,
+    ratingCount: 0,
+    socialLinks: revision.socialLinks.map((link) => ({
+      type: link.type,
+      url: link.url,
+    })),
+    certificates: [],
+    specialties: [],
+  };
+}
 
   // ✅ NUEVO: listar todos los perfiles aprobados con su información pública
-  static async getAllPublic(): Promise<PublicProfessionalProfile[]> {
-    const profiles = await prisma.professionalProfile.findMany({
-      where: {
-        verificationStatus: "APPROVED",
+ static async getAllPublic(
+  tenantId: number,
+): Promise<PublicProfessionalProfile[]> {
+  const affiliations = await prisma.professionalTenantAffiliation.findMany({
+    where: {
+      tenantId,
+      status: "ACTIVE",
+      tenant: {
+        is: { status: "ACTIVE" },
       },
-      include: {
-        specialties: {
-          where: { status: SpecialtyStatus.APPROVED },
-          include: { specialty: true },
+      professionalProfile: {
+        is: {
+          user: {
+            is: {
+              tenantMemberships: {
+                some: {
+                  tenantId,
+                  status: "ACTIVE",
+                },
+              },
+            },
+          },
         },
-        socialLinks: true,
-        
       },
+      revisions: {
+        some: { status: "APPROVED" },
+      },
+    },
+    select: {
+      professionalProfile: {
+        select: {
+          id: true,
+          name: true,
+          lastName: true,
+          avatar: true,
+          ratingAvg: true,
+          ratingCount: true,
+          verificationStatus: true,
+        },
+      },
+      revisions: {
+        where: { status: "APPROVED" },
+        orderBy: { revisionNumber: "desc" },
+        take: 1,
+        select: {
+          description: true,
+          socialLinks: {
+            select: {
+              type: true,
+              url: true,
+            },
+          },
+        },
+      },
+    },
+  });
+
+  return affiliations
+    .filter((affiliation) => affiliation.revisions.length > 0)
+    .map((affiliation) => {
+      const profile = affiliation.professionalProfile;
+      const revision = affiliation.revisions[0];
+
+      return {
+        id: profile.id,
+        name: profile.name,
+        lastName: profile.lastName,
+        avatar: profile.avatar,
+        description: revision.description,
+        verificationStatus: profile.verificationStatus,
+        ratingAvg: 0,
+        ratingCount: 0,
+        socialLinks: revision.socialLinks.map((link) => ({
+          type: link.type,
+          url: link.url,
+        })),
+        certificates: [],
+        specialties: [],
+      };
     });
-
-    return profiles.map((profile) => ({
-      id: profile.id,
-      name: profile.name,
-      lastName: profile.lastName,
-      avatar: profile.avatar,
-      description: profile.description,
-      socialLinks: profile.socialLinks,
-      verificationStatus: profile.verificationStatus,
-      ratingAvg: profile.ratingAvg,
-  ratingCount: profile.ratingCount,
-      specialties: profile.specialties.map((ps) => ({
-        id: ps.specialty.id,
-        name: ps.specialty.name,
-        description: ps.specialty.description,
-      })),
-    }));
-  }
-
+}
  // listar a todos los perfiles (solo para admin)
   static async getAllProfiles() {
   return prisma.professionalProfile.findMany({

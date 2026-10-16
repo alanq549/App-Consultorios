@@ -10,6 +10,8 @@ El primer vertical slice de Fase 3 implementa exclusivamente la frontera de cont
 
 La evidencia de implementacion y validacion se registra en la seccion 19. Las decisiones de diseno aprobadas permanecen documentadas en las secciones 3 a 16.
 
+**Diseño Profiles–Tenancy:** [FASE3_PROFILES_TENANCY.md](FASE3_PROFILES_TENANCY.md) está `APPROVED` por Code Reviewer. Los tres gates de diseño están cerrados y el slice operativo se desglosa en [FASE3_PROFILES_TENANCY_SLICE.md](FASE3_PROFILES_TENANCY_SLICE.md): su **Slice A** (directorio público tenant-scoped) está `APPROVED` e implementado, mientras el **Slice B** (ciclo de vida de afiliación, comandos `OWNER`, backfill y retención) permanece pendiente de implementación.
+
 Fase 2 — Identity permanece `CLOSED / APPROVED`. Los slices operativos posteriores de Tenancy requieren sus propias decisiones de diseno, implementacion, pruebas y revision antes de considerarse aprobados.
 
 El objetivo del **primer vertical slice** de Fase 3 es establecer y validar exclusivamente la frontera de contexto tenant:
@@ -54,6 +56,8 @@ Para el primer SaaS se aprueba PostgreSQL con **shared database / shared schema*
 Para el primer vertical slice se define el ciclo de vida minimo:
 - `Tenant.status === ACTIVE` representa un tenant resoluble y operativo.
 - No se introducen estados adicionales complejos prematuros (`ARCHIVED`, `DELETED`, `SUSPENDED`, `PENDING`) en esta fase inicial.
+
+**Addendum Profiles–Tenancy:** el directorio público requiere diferenciar tenant activo e inactivo. El slice Profiles–Tenancy amplía este enum con `INACTIVE` como estado binario no resoluble públicamente; `ACTIVE` sigue siendo el default. No introduce lifecycle administrativo adicional ni altera el slice inicial de `Tenant/Membership`.
 
 ### 3.4 Cardinalidad de Membership (User <-> Tenant)
 - Un `User` puede pertenecer a multiples `Tenant` (cardinalidad **M:N**).

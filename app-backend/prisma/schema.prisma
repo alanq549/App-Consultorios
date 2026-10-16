@@ -31,11 +31,12 @@ model User {
   professionalProfile ProfessionalProfile?
   customConfig        CustomConfig?
 
-  tenantMemberships TenantMembership[]
+  tenantMemberships             TenantMembership[]
+  affiliationRevisionsSubmitted ProfessionalAffiliationRevision[] @relation("AffiliationRevisionSubmittedBy")
+  affiliationRevisionsReviewed  ProfessionalAffiliationRevision[] @relation("AffiliationRevisionReviewedBy")
 
   @@index([role])
 }
-
 
 model Tenant {
   id        Int          @id @default(autoincrement())
@@ -45,18 +46,92 @@ model Tenant {
   createdAt DateTime     @default(now())
   updatedAt DateTime     @updatedAt
 
-  memberships TenantMembership[]
+  memberships              TenantMembership[]
+  professionalAffiliations ProfessionalTenantAffiliation[]
 
   @@index([status])
 }
 
+model ProfessionalTenantAffiliation {
+  id                    Int                           @id @default(autoincrement())
+  professionalProfileId Int
+  tenantId              Int
+  status                ProfessionalAffiliationStatus @default(PENDING_REVIEW)
+  createdAt             DateTime                      @default(now())
+  updatedAt             DateTime                      @updatedAt
+
+  professionalProfile ProfessionalProfile               @relation(fields: [professionalProfileId], references: [id], onDelete: Restrict)
+  tenant              Tenant                            @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  revisions           ProfessionalAffiliationRevision[]
+
+  @@unique([professionalProfileId, tenantId])
+  @@index([tenantId, status])
+  @@index([professionalProfileId, status])
+}
+
+model ProfessionalAffiliationRevision {
+  id                Int                       @id @default(autoincrement())
+  affiliationId     Int
+  revisionNumber    Int
+  status            AffiliationRevisionStatus @default(PENDING_REVIEW)
+  description       String
+  submittedByUserId Int
+  submittedAt       DateTime                  @default(now())
+  reviewedByUserId  Int?
+  reviewedAt        DateTime?
+  rejectionReason   String?
+  createdAt         DateTime                  @default(now())
+
+  affiliation ProfessionalTenantAffiliation               @relation(fields: [affiliationId], references: [id], onDelete: Restrict)
+  submittedBy User                                        @relation("AffiliationRevisionSubmittedBy", fields: [submittedByUserId], references: [id], onDelete: Restrict)
+  reviewedBy  User?                                       @relation("AffiliationRevisionReviewedBy", fields: [reviewedByUserId], references: [id], onDelete: Restrict)
+  socialLinks ProfessionalAffiliationRevisionSocialLink[]
+
+  @@unique([affiliationId, revisionNumber])
+  @@index([affiliationId, status])
+  @@index([status, submittedAt])
+}
+
+model ProfessionalAffiliationRevisionSocialLink {
+  id         Int        @id @default(autoincrement())
+  revisionId Int
+  type       SocialType
+  url        String
+  createdAt  DateTime   @default(now())
+
+  revision ProfessionalAffiliationRevision @relation(fields: [revisionId], references: [id], onDelete: Restrict)
+
+  @@unique([revisionId, type])
+  @@index([revisionId])
+}
+
+model ProfessionalAffiliationAuditEvent {
+  id              Int                            @id @default(autoincrement())
+  tenantId        Int
+  affiliationId   Int
+  revisionId      Int?
+  actorUserId     Int?
+  action          AffiliationAuditAction
+  previousStatus  ProfessionalAffiliationStatus?
+  nextStatus      ProfessionalAffiliationStatus?
+  reason          String?
+  changedFields   Json?
+  sourceReference String?
+  occurredAt      DateTime                       @default(now())
+  createdAt       DateTime                       @default(now())
+
+  @@index([tenantId, affiliationId, occurredAt])
+  @@index([actorUserId, occurredAt])
+  @@index([createdAt])
+}
+
 model TenantMembership {
-  id        Int              @id @default(autoincrement())
-  userId    Int
-  tenantId  Int
-  role      TenantRole
-  status    MembershipStatus @default(ACTIVE)
-  joinedAt  DateTime         @default(now())
+  id       Int              @id @default(autoincrement())
+  userId   Int
+  tenantId Int
+  role     TenantRole
+  status   MembershipStatus @default(ACTIVE)
+  joinedAt DateTime         @default(now())
 
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
   tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
@@ -68,6 +143,7 @@ model TenantMembership {
 
 enum TenantStatus {
   ACTIVE
+  INACTIVE
 }
 
 enum TenantRole {
@@ -92,6 +168,36 @@ model VerificationAttempt {
 
   @@unique([userId, token])
   @@index([userId, expiresAt])
+}
+
+enum ProfessionalAffiliationStatus {
+  PENDING_REVIEW
+  ACTIVE
+  REJECTED
+  SUSPENDED
+  WITHDRAWN
+}
+
+enum AffiliationRevisionStatus {
+  PENDING_REVIEW
+  APPROVED
+  REJECTED
+  SUPERSEDED
+}
+
+enum AffiliationAuditAction {
+  APPLY
+  SUBMIT_CONTENT
+  SUPERSEDE_CONTENT
+  APPROVE_AFFILIATION
+  REJECT_AFFILIATION
+  APPROVE_CONTENT
+  REJECT_CONTENT
+  SUSPEND
+  REACTIVATE
+  WITHDRAW
+  REOPEN
+  BACKFILL
 }
 
 model PasswordReset {
@@ -170,16 +276,17 @@ model ProfessionalProfile {
   description        String
   verificationStatus ProfessionalStatus @default(PENDING)
 
-  ratingAvg   Float  @default(0)
-  ratingCount Int    @default(0)
+  ratingAvg   Float @default(0)
+  ratingCount Int   @default(0)
 
-  user         User                    @relation(fields: [userId], references: [id], onDelete: Cascade)
-  specialties  ProfessionalSpecialty[]
-  services     Service[]
-  schedules    Schedule[]
-  certificates Certificate[]
-  socialLinks  SocialLink[]
-  appointments Appointment[]
+  user               User                            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  specialties        ProfessionalSpecialty[]
+  services           Service[]
+  schedules          Schedule[]
+  certificates       Certificate[]
+  socialLinks        SocialLink[]
+  appointments       Appointment[]
+  tenantAffiliations ProfessionalTenantAffiliation[]
 
   @@index([verificationStatus])
   @@index([name])
@@ -342,7 +449,7 @@ model Notification {
   id            Int              @id @default(autoincrement())
   userId        Int
   appointmentId Int?
-  type          NotificationType 
+  type          NotificationType
   title         String
   message       String
   isRead        Boolean          @default(false)

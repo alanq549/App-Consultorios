@@ -57,5 +57,3 @@ export const CreateCertificateSchema = z.object({
 });
 
 export type CreateCertificateDTO = z.infer<typeof CreateCertificateSchema>;
-
-

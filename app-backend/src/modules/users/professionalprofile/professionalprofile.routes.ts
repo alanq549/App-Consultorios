@@ -1,18 +1,32 @@
 // src/modules/users/professionalprofile/professionalprofile.routes.ts
 import { Router } from "express";
+import type { RequestHandler } from "express";
 import { ProfessionalProfileController } from "./professionalprofile.controller";
 import { createUploader } from "@/core/storage/upload";
 import { authMiddleware, authorizeRole } from "@/middlewares/auth.middleware";
 import { ProfessionalSpecialtyController } from "@/modules/specialty/ProfessionalSpecialty/professionalSpecialty.controller";
 import { requireRole } from "@/middlewares/role.middleware";
+import { resolvePublicTenantMiddleware } from "@/modules/tenancy/http/resolve-public-tenant.middleware";
+import { AppError } from "@/shared/errors/AppError";
 
 const uploadCertificates = createUploader("certificates");
-
 const router = Router();
 
-// Público
-router.get("/Allprofiles", ProfessionalProfileController.getAllPublic);
-router.get("/:id", ProfessionalProfileController.getPublic);
+
+const profileTenantNotFoundHandler: RequestHandler = (
+  _req,
+  _res,
+  next,
+) => {
+  next(new AppError("Perfil profesional no encontrado", 404));
+};
+
+// Directorio público: requiere X-Tenant-ID, no authMiddleware.
+router.get(
+  "/Allprofiles",
+  resolvePublicTenantMiddleware(),
+  ProfessionalProfileController.getAllPublic,
+);
 
 // --------------------
 // Social Links
@@ -63,6 +77,13 @@ router.post(
   authMiddleware,
   authorizeRole("PROFESSIONAL"),
   ProfessionalSpecialtyController.requestSpecialty
+);
+
+// Mantener la ruta dinámica al final.
+router.get(
+  "/:id",
+  resolvePublicTenantMiddleware(profileTenantNotFoundHandler),
+  ProfessionalProfileController.getPublic,
 );
 
 export default router;

@@ -253,12 +253,13 @@ El actual `auth.service.ts` contiene registro, perfiles, configuración, tokens,
 
 ## Fase 3 — Tenancy y autorización contextual
 
-El diseño detallado, la matriz real de rutas/jobs y las decisiones aprobadas del primer vertical slice están en [FASE3_TENANCY.md](FASE3_TENANCY.md). Estado actual: `READY FOR REVIEW`; no iniciar cambios de código/Prisma hasta que el diseño figure `APPROVED`.
+El primer vertical slice (`Tenant/Membership` y `GET /api/tenancy/current`) está `APPROVED`; su alcance y límites están en [FASE3_TENANCY.md](FASE3_TENANCY.md). El diseño Profiles–Tenancy está `APPROVED` por Code Reviewer y el plan de implementación está en [FASE3_PROFILES_TENANCY_SLICE.md](FASE3_PROFILES_TENANCY_SLICE.md). La Fase 3 permanece abierta; no iniciar implementación hasta cerrar los tres gates documentados en el plan.
 
 ### Objetivo
 
 - **Primer vertical slice:** Establecer y validar exclusivamente la frontera de contexto y autorización tenant (resolución del selector `X-Tenant-ID` de transporte inicial, verificación de membresía M:N activa, autorización contextual y denegación horizontal cross-tenant sobre el propio contexto tenant).
 - **Fase 3 completa / aislamiento general:** Aislamiento incremental de datos en los módulos operativos antes de habilitar el uso SaaS en producción. El primer slice **no demuestra** aislamiento de filas en tablas operativas (`Appointment`, `Service`, `Schedule`, perfiles, catálogo, cron); estas superficies permanecen formalmente pendientes y se migrarán en slices posteriores independientes.
+- **Siguiente slice operativo:** afiliaciones profesionales tenant-scoped y directorio público, según [FASE3_PROFILES_TENANCY_SLICE.md](FASE3_PROFILES_TENANCY_SLICE.md). No cubre perfiles de clientes, Catalog, Scheduling ni Appointments.
 
 ### Contexto propietario
 

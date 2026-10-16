@@ -31,11 +31,13 @@ No crear el módulo ni mover el endpoint como parte de esta decisión. Hasta el 
 | `ClientProfile` | Profiles | Datos del perfil de cliente. |
 | `ProfessionalProfile` | Profiles | Datos del perfil profesional. |
 | `Specialty` | Catalog | Definición y estado del catálogo de especialidades. |
-| `ProfessionalSpecialty` | Profiles | Relación de especialidad solicitada por un profesional y su lifecycle de revisión; referencia una especialidad propiedad de Catalog. |
+| `ProfessionalSpecialty` | Profiles | Solicitud/elegibilidad global de un profesional para una `Specialty`, con lifecycle de revisión; no representa la oferta de esa especialidad en un consultorio. |
 | `CustomConfig` | Preferences | Configuración/preferencias de usuario; el alcance tenant/personal se decide en la fase correspondiente. |
 | `Notification` | Notifications | Notificación persistida y su lifecycle. |
 
 Los owners proporcionan los contratos de provisioning y son autoridad sobre sus invariantes. El coordinador recibe IDs y resultados explícitos; no comparte DTOs Prisma ni accede a servicios/repositorios internos de otros módulos.
+
+El registro legacy crea `ProfessionalSpecialty` en estado `PENDING`: el límite Profiles–Tenancy propuesto en [FASE3_PROFILES_TENANCY.md](FASE3_PROFILES_TENANCY.md) conserva esa solicitud como elegibilidad profesional global. La especialidad que se ofrece en una clínica es una relación separada, por afiliación y tenant, bajo contrato con Catalog; la aprobación global no la publica ni crea automáticamente una oferta local.
 
 ### Límite transaccional y atomicidad
 
@@ -85,7 +87,9 @@ La extracción de onboarding **no es parte de Fase 2 — Identity** y no se impl
 5. el límite transaccional único y la participación explícita de los adapters sin filtrar tipos Prisma;
 6. recuperación/observabilidad de fallos de correo y notificación compatibles con el contrato HTTP.
 
-El hito se planifica después de establecer los contratos de Profiles y Catalog, y de acordar la participación mínima de Preferences. Puede ser una entrega transversal entre fases del roadmap; no requiere esperar la migración completa de Preferences ni adelantar Tenancy, si su provisioning mínimo puede definirse sin resolver decisiones tenant pendientes.
+La propuesta de límite Profiles–Tenancy se documenta en [FASE3_PROFILES_TENANCY.md](FASE3_PROFILES_TENANCY.md). Bajo ese diseño, crear un perfil profesional personal no concede afiliación a un consultorio: el onboarding que cree o active una afiliación requiere un Tenant y una membership válidos. Por ello, la migración de la afiliación profesional sí depende de cerrar los contratos Tenancy/Profiles y de un mecanismo de asignación explícito; la creación de la cuenta Identity y de datos personales no implica ni crea un Tenant.
+
+El hito se planifica después de establecer los contratos de Profiles y Catalog, y de acordar la participación mínima de Preferences. Puede migrarse por etapas y no requiere esperar la migración completa de Preferences. Sin embargo, bajo la propuesta de [FASE3_PROFILES_TENANCY.md](FASE3_PROFILES_TENANCY.md), el provisioning o activación de una afiliación profesional sí requiere Tenant y membership válidos; la migración completa del onboarding profesional no puede preceder a esos contratos de Tenancy ni inventar una asignación. El aprovisionamiento de cuenta y datos personales puede definirse por separado si conserva el contrato HTTP y no publica ni activa una afiliación tenantless.
 
 `auth` se retira únicamente cuando la ruta legacy delegue al coordinador aprobado, ningún otro consumer dependa de sus servicios/DTOs y el contrato HTTP y side effects estén cubiertos por pruebas. Hasta entonces debe permanecer identificado como temporal, no como owner conceptual permanente.
 
