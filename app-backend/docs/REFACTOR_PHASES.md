@@ -253,13 +253,13 @@ El actual `auth.service.ts` contiene registro, perfiles, configuración, tokens,
 
 ## Fase 3 — Tenancy y autorización contextual
 
-El primer vertical slice (`Tenant/Membership` y `GET /api/tenancy/current`) está `APPROVED`; su alcance y límites están en [FASE3_TENANCY.md](FASE3_TENANCY.md). El diseño Profiles–Tenancy está `APPROVED` por Code Reviewer y el plan de implementación está en [FASE3_PROFILES_TENANCY_SLICE.md](FASE3_PROFILES_TENANCY_SLICE.md). La Fase 3 permanece abierta; no iniciar implementación hasta cerrar los tres gates documentados en el plan.
+El contexto `Tenant/Membership` y el directorio público Profiles–Tenancy (Slice A) están `APPROVED`. Los gates de diseño están cerrados para el portafolio. La Fase 3 permanece abierta; el siguiente trabajo es el ciclo de vida de afiliación (Slice B), cuyo estado real y alcance corto están en [FASE3_PROFILES_TENANCY_SLICE.md](FASE3_PROFILES_TENANCY_SLICE.md).
 
 ### Objetivo
 
 - **Primer vertical slice:** Establecer y validar exclusivamente la frontera de contexto y autorización tenant (resolución del selector `X-Tenant-ID` de transporte inicial, verificación de membresía M:N activa, autorización contextual y denegación horizontal cross-tenant sobre el propio contexto tenant).
 - **Fase 3 completa / aislamiento general:** Aislamiento incremental de datos en los módulos operativos antes de habilitar el uso SaaS en producción. El primer slice **no demuestra** aislamiento de filas en tablas operativas (`Appointment`, `Service`, `Schedule`, perfiles, catálogo, cron); estas superficies permanecen formalmente pendientes y se migrarán en slices posteriores independientes.
-- **Siguiente slice operativo:** afiliaciones profesionales tenant-scoped y directorio público, según [FASE3_PROFILES_TENANCY_SLICE.md](FASE3_PROFILES_TENANCY_SLICE.md). No cubre perfiles de clientes, Catalog, Scheduling ni Appointments.
+- **Siguiente slice operativo:** completar comandos de afiliación y revisión OWNER. El directorio público ya fue aprobado; Catalog/ofertas, Scheduling, Appointments y perfiles de clientes siguen fuera de este slice.
 
 ### Contexto propietario
 
@@ -289,15 +289,15 @@ User (identidad global de referencia en Identity)
 
 ### Criterios de aceptación del primer vertical slice
 
-> **Nota de estado:** Las decisiones de diseño y gates conceptuales del primer slice están cerrados y aprobados por Producto. Los ítems pendientes `[ ]` corresponden estrictamente a la validación de la futura implementación técnica tras recibir `APPROVED`.
+> **Nota de estado:** El contexto Tenant/Membership fue implementado y aprobado. El directorio público Profiles–Tenancy (Slice A) también fue aprobado. La lista siguiente registra la aceptación del primer slice de contexto, no el Slice B.
 
 - [x] Modelo conceptual `Tenant` y `TenantMembership` con restricción `unique(userId, tenantId)` y lifecycle mínimo aprobados por Producto.
-- [ ] Selector `X-Tenant-ID` configurado como transporte inicial sin asumir permanencia irreversible de UX.
-- [ ] El guard/middleware verifica `TenantMembership` sin confiar en `User.role` ni asumir que el header otorga autorización por sí mismo.
-- [ ] Tests con dos tenants (A y B) cubren: acceso válido con membresía activa, rechazo cross-tenant (miembro de A solicita B), rechazo por membresía suspendida, rechazo a `ADMIN` global sin membresía, y selector ausente/inválido.
-- [ ] `GET /api/tenancy/current` implementado bajo contrato seguro con mitigación de enumeración de tenants (error uniforme HTTP 403 con `{ "message": "Tenant context unavailable or access denied" }` alineado a `errorHandler.ts`).
-- [ ] Todas las rutas/jobs del backend están inventariados; las superficies fuera del slice permanecen explícitamente pendientes.
-- [ ] No se alteran contratos HTTP legacy ni se tocan modelos operativos existentes en este slice.
+- [x] Selector `X-Tenant-ID` configurado como transporte inicial, sin declararlo permanente para UX.
+- [x] Membership validada en base de datos; header y `User.role` no conceden acceso.
+- [x] Tests cubren tenant activo/inactivo, membership activa/suspendida y acceso no autorizado.
+- [x] `GET /api/tenancy/current` implementado bajo el contrato de error uniforme aprobado.
+- [x] Rutas/jobs inventariados; módulos operativos fuera de alcance permanecen pendientes.
+- [x] No se alteraron contratos HTTP legacy ni modelos operativos en el slice de contexto.
 
 ### Bloqueadores del slice
 
