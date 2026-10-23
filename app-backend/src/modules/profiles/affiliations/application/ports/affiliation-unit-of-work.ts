@@ -9,6 +9,7 @@ import type { AffiliationRepository } from "./affiliation-repository";
 import type { AffiliationRevisionRepository } from "./affiliation-revision-repository";
 import type { AffiliationAuditRepository } from "./affiliation-audit-repository";
 import type { ActiveMembershipChecker } from "./active-membership-checker";
+import type { ActiveTenantChecker } from "./active-tenant-checker";
 
 /**
  * Conjunto de repositorios y verificadores del módulo de afiliaciones enlazados a un mismo contexto transaccional.
@@ -25,6 +26,8 @@ export interface AffiliationTransactionalRepositories {
   audit: AffiliationAuditRepository;
   /// Verificador de membresía activa coordinado dentro de la misma transacción.
   memberships: ActiveMembershipChecker;
+  /// Verificador de estado activo del tenant dentro de la transacción.
+  tenants: ActiveTenantChecker;
 }
 
 /**

@@ -81,6 +81,21 @@ export interface AffiliationRepository {
   ): Promise<AffiliationRecord | null>;
 
   /**
+   * Lista todas las afiliaciones de un tenant, con filtro opcional por estado.
+   */
+  findByTenant(
+    tenantId: number,
+    filter?: { status?: AffiliationStatus },
+  ): Promise<AffiliationRecord[]>;
+
+  /**
+   * Lista todas las afiliaciones de un perfil profesional across tenants.
+   */
+  findByProfessionalProfile(
+    professionalProfileId: number,
+  ): Promise<AffiliationRecord[]>;
+
+  /**
    * Registra y crea una nueva afiliación en el sistema.
    */
   create(

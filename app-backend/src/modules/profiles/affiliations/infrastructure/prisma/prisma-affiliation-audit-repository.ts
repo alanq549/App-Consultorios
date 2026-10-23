@@ -79,4 +79,42 @@ export class PrismaAffiliationAuditRepository
       createdAt: record.createdAt,
     };
   }
+
+  /// Obtiene los eventos de auditoría registrados para una afiliación en un tenant.
+  async findByAffiliation(
+    tenantId: number,
+    affiliationId: number,
+  ): Promise<AffiliationAuditEventRecord[]> {
+    const records =
+      await this.tx.professionalAffiliationAuditEvent.findMany({
+        where: {
+          tenantId,
+          affiliationId,
+        },
+        orderBy: {
+          occurredAt: "asc",
+        },
+      });
+
+    return records.map((record) => ({
+      id: record.id,
+      tenantId: record.tenantId,
+      affiliationId: record.affiliationId,
+      action: record.action,
+      actorUserId: record.actorUserId,
+      revisionId: record.revisionId,
+      previousStatus: record.previousStatus,
+      nextStatus: record.nextStatus,
+      reason: record.reason,
+      changedFields:
+        record.changedFields === null ||
+        typeof record.changedFields !== "object" ||
+        Array.isArray(record.changedFields)
+          ? null
+          : (record.changedFields as JsonObject),
+      sourceReference: record.sourceReference,
+      occurredAt: record.occurredAt,
+      createdAt: record.createdAt,
+    }));
+  }
 }

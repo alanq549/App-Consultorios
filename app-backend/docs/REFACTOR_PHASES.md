@@ -253,13 +253,13 @@ El actual `auth.service.ts` contiene registro, perfiles, configuración, tokens,
 
 ## Fase 3 — Tenancy y autorización contextual
 
-El contexto `Tenant/Membership` y el directorio público Profiles–Tenancy (Slice A) están `APPROVED`. Los gates de diseño están cerrados para el portafolio. La Fase 3 permanece abierta; el siguiente trabajo es el ciclo de vida de afiliación (Slice B), cuyo estado real y alcance corto están en [FASE3_PROFILES_TENANCY_SLICE.md](FASE3_PROFILES_TENANCY_SLICE.md).
+El contexto `Tenant/Membership` y el directorio público Profiles–Tenancy (Slice A) están `APPROVED`. Los gates de diseño están cerrados para el portafolio. La Fase 3 permanece abierta; el ciclo de vida de afiliación (Slice B) está cerrado (2026-10-23) y su estado real está en [FASE3_PROFILES_TENANCY_SLICE.md](FASE3_PROFILES_TENANCY_SLICE.md). El siguiente trabajo de la fase es el Slice C (backfill con mappings explícitos aprobados y retención de auditoría), aún no iniciado.
 
 ### Objetivo
 
 - **Primer vertical slice:** Establecer y validar exclusivamente la frontera de contexto y autorización tenant (resolución del selector `X-Tenant-ID` de transporte inicial, verificación de membresía M:N activa, autorización contextual y denegación horizontal cross-tenant sobre el propio contexto tenant).
 - **Fase 3 completa / aislamiento general:** Aislamiento incremental de datos en los módulos operativos antes de habilitar el uso SaaS en producción. El primer slice **no demuestra** aislamiento de filas en tablas operativas (`Appointment`, `Service`, `Schedule`, perfiles, catálogo, cron); estas superficies permanecen formalmente pendientes y se migrarán en slices posteriores independientes.
-- **Siguiente slice operativo:** completar comandos de afiliación y revisión OWNER. El directorio público ya fue aprobado; Catalog/ofertas, Scheduling, Appointments y perfiles de clientes siguen fuera de este slice.
+- **Slice operativo cerrado:** comandos de afiliación y revisión OWNER completados y cerrados (Slice B, 2026-10-23). El directorio público ya fue aprobado; Catalog/ofertas, Scheduling, Appointments y perfiles de clientes siguen fuera de este slice.
 
 ### Contexto propietario
 

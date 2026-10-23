@@ -149,3 +149,30 @@ export class AffiliationNotFoundError extends Error {
     this.name = "AffiliationNotFoundError";
   }
 }
+
+/**
+ * Error de dominio: El consultorio/tenant no existe o no se encuentra activo.
+ */
+export class TenantNotActiveError extends Error {
+  constructor(public readonly tenantId: number) {
+    super(
+      `El consultorio/tenant con ID ${tenantId} no existe o no se encuentra activo`,
+    );
+    this.name = "TenantNotActiveError";
+  }
+}
+
+export const InactiveTenantError = TenantNotActiveError;
+export type InactiveTenantError = TenantNotActiveError;
+
+/**
+ * Error de dominio: El contenido propuesto contiene múltiples enlaces para la misma red social.
+ */
+export class DuplicateSocialLinkTypeError extends Error {
+  constructor(public readonly duplicateType: string) {
+    super(
+      `No se permite más de un enlace para la red social ${duplicateType} en la misma propuesta`,
+    );
+    this.name = "DuplicateSocialLinkTypeError";
+  }
+}

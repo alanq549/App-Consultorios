@@ -8,6 +8,7 @@
 import { Router } from "express";
 import { authMiddleware } from "@/middlewares/auth.middleware";
 import { TenancyController } from "@/modules/tenancy/http/tenancy.controller";
+import tenantAffiliationRoutes from "@/modules/profiles/affiliations/http/tenant-affiliations.routes";
 
 const router = Router();
 
@@ -15,5 +16,9 @@ const router = Router();
 /// Protegido por `authMiddleware` (requiere un token/sesión de usuario válida en `req.user`).
 /// Retorna la información y contexto del tenant seleccionado en la cabecera 'X-Tenant-ID'.
 router.get("/current", authMiddleware, TenancyController.getCurrent);
+
+/// /affiliations
+/// Endpoints para que el OWNER administre las afiliaciones de su tenant.
+router.use("/affiliations", tenantAffiliationRoutes);
 
 export default router;

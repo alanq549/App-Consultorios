@@ -88,4 +88,10 @@ export interface AffiliationAuditRepository {
   append(
     input: AffiliationAuditEventInput,
   ): Promise<AffiliationAuditEventRecord>;
+
+  /// Obtiene los eventos de auditoría de una afiliación en orden cronológico.
+  findByAffiliation(
+    tenantId: number,
+    affiliationId: number,
+  ): Promise<AffiliationAuditEventRecord[]>;
 }

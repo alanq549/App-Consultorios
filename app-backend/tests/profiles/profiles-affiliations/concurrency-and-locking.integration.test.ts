@@ -161,19 +161,130 @@ describe("Concurrency and Row-level Locking Integration (PostgreSQL)", () => {
     }
   });
 
-  it("ejecuta lockForRevisionWorkflow con SELECT FOR UPDATE contra PostgreSQL sin errores de sintaxis", async () => {
+  it("serializa sesiones concurrentes mediante lockForRevisionWorkflow demostrando bloqueo de fila en PostgreSQL", async () => {
+    // 1. Validar sintaxis y que no bloquee IDs inexistentes
     await prisma.$transaction(async (tx) => {
       const repo = new PrismaAffiliationRepository(tx);
-      const locked = await repo.lockForRevisionWorkflow(tenant.id, affiliation.id);
-
-      expect(locked).toBe(true);
-
       const notFoundLock = await repo.lockForRevisionWorkflow(
         tenant.id,
         99999999, // ID inexistente
       );
       expect(notFoundLock).toBe(false);
     });
+
+    // 2. Demostración observable de serialización y bloqueo pesimista en PostgreSQL
+    let signalLockAcquired: () => void = () => {};
+    const lockAcquired = new Promise<void>((resolve) => {
+      signalLockAcquired = resolve;
+    });
+
+    let signalProceed: () => void = () => {};
+    let proceeded = false;
+    const canProceed = new Promise<void>((resolve) => {
+      signalProceed = () => {
+        if (!proceeded) {
+          proceeded = true;
+          resolve();
+        }
+      };
+    });
+
+    let holderPid = 0;
+    let waiterPromise: Promise<boolean> | null = null;
+
+    // Transacción 1: adquiere el lock pesimista sobre la afiliación y lo retiene en la barrera
+    const holderPromise = prisma.$transaction(async (tx) => {
+      const [{ pid }] = await tx.$queryRaw<Array<{ pid: number }>>`SELECT pg_backend_pid() AS pid`;
+      holderPid = pid;
+
+      const repo = new PrismaAffiliationRepository(tx);
+      const locked = await repo.lockForRevisionWorkflow(tenant.id, affiliation.id);
+      expect(locked).toBe(true);
+
+      // Señalizar que el lock ya fue adquirido
+      signalLockAcquired();
+
+      // Esperar en la barrera
+      await canProceed;
+    });
+
+    try {
+      // Esperar a que la transacción 1 tenga el lock
+      let lockTimeoutHandle: NodeJS.Timeout;
+      const timeoutPromise = new Promise<never>((_, reject) => {
+        lockTimeoutHandle = setTimeout(
+          () => reject(new Error("Timeout esperando adquisición del lock de afiliación")),
+          5000,
+        );
+      });
+
+      try {
+        await Promise.race([
+          lockAcquired,
+          timeoutPromise,
+          holderPromise.then(() => {
+            throw new Error("La transacción de bloqueo terminó antes de señalizar lockAcquired");
+          }),
+        ]);
+      } finally {
+        clearTimeout(lockTimeoutHandle!);
+      }
+
+      // Transacción 2: intenta adquirir el mismo lock sobre la misma afiliación
+      let waiterSettled = false;
+      waiterPromise = prisma.$transaction(async (tx) => {
+        const repo = new PrismaAffiliationRepository(tx);
+        return await repo.lockForRevisionWorkflow(tenant.id, affiliation.id);
+      })
+        .then((res) => {
+          waiterSettled = true;
+          return res;
+        })
+        .catch((err) => {
+          waiterSettled = true;
+          throw err;
+        });
+
+      // Sondear pg_stat_activity para verificar que la sesión 2 está bloqueada por holderPid
+      let lockWaitDetected = false;
+      const pollDeadline = Date.now() + 5000;
+      while (Date.now() < pollDeadline) {
+        const waitingSessions = await prisma.$queryRaw<Array<{ pid: number }>>`
+          SELECT pid
+          FROM pg_stat_activity
+          WHERE ${holderPid} = ANY(pg_blocking_pids(pid))
+            AND query ILIKE '%ProfessionalTenantAffiliation%'
+            AND query ILIKE '%FOR UPDATE%'
+        `;
+        if (waitingSessions.length > 0) {
+          lockWaitDetected = true;
+          break;
+        }
+        await new Promise((resolve) => setTimeout(resolve, 25));
+      }
+
+      // Aserciones clave:
+      // 1. PostgreSQL reporta que la segunda transacción está esperando activamente por holderPid
+      expect(lockWaitDetected).toBe(true);
+      // 2. La segunda transacción NO ha terminado aún
+      expect(waiterSettled).toBe(false);
+
+      // Liberar la barrera para que la transacción 1 confirme y suelte el lock
+      signalProceed();
+
+      // La transacción 2 se desbloquea en PostgreSQL, adquiere el lock y retorna true
+      const waiterResult = await waiterPromise;
+      expect(waiterResult).toBe(true);
+      expect(waiterSettled).toBe(true);
+
+      await holderPromise;
+    } finally {
+      signalProceed();
+      await holderPromise.catch(() => {});
+      if (waiterPromise) {
+        await waiterPromise.catch(() => {});
+      }
+    }
   });
 
   it("serializa operaciones y previene que una revisión vieja sea aprobada cuando entra una nueva en carrera", async () => {
@@ -431,6 +542,189 @@ describe("Concurrency and Row-level Locking Integration (PostgreSQL)", () => {
         data: { status: "ACTIVE" },
       }).catch(() => {});
     }
+  });
+
+  /// Retiene el lock pesimista de la fila de afiliación en una transacción independiente y
+  /// ejecuta `operation` mientras la barrera sigue activa, comprobando en PostgreSQL que la
+  /// operación queda esperando por ese lock antes de liberarlo.
+  ///
+  /// Sirve para detectar la regresión de que un caso de uso deje de invocar
+  /// `lockForRevisionWorkflow`: si la operación no emite el `FOR UPDATE` sobre la afiliación,
+  /// `pg_blocking_pids` nunca la reporta esperando y la aserción falla.
+  ///
+  /// @param operation - Operación de caso de uso a ejecutar bajo el lock retenido.
+  /// @returns El resultado de `operation`, obtenido después de liberar la barrera.
+  async function runUnderHeldAffiliationLock<T>(
+    operation: () => Promise<T>,
+  ): Promise<T> {
+    let signalLockAcquired: () => void = () => {};
+    const lockAcquired = new Promise<void>((resolve) => {
+      signalLockAcquired = resolve;
+    });
+
+    let signalProceed: () => void = () => {};
+    let proceeded = false;
+    const canProceed = new Promise<void>((resolve) => {
+      signalProceed = () => {
+        if (!proceeded) {
+          proceeded = true;
+          resolve();
+        }
+      };
+    });
+
+    let holderPid = 0;
+    let operationSettled = false;
+    let operationPromise: Promise<T> | null = null;
+
+    // Sesión 1: adquiere el lock de la afiliación y lo retiene hasta que el test lo libere.
+    const holderPromise = prisma.$transaction(async (tx) => {
+      const [{ pid }] = await tx.$queryRaw<Array<{ pid: number }>>`SELECT pg_backend_pid() AS pid`;
+      holderPid = pid;
+
+      await tx.$queryRaw`
+        SELECT "id"
+        FROM "ProfessionalTenantAffiliation"
+        WHERE "id" = ${affiliation.id}
+        AND "tenantId" = ${tenant.id}
+        FOR UPDATE
+      `;
+
+      signalLockAcquired();
+      await canProceed;
+    });
+
+    try {
+      let lockTimeoutHandle: NodeJS.Timeout;
+      const timeoutPromise = new Promise<never>((_, reject) => {
+        lockTimeoutHandle = setTimeout(
+          () => reject(new Error("Timeout esperando adquisición del lock de afiliación")),
+          5000,
+        );
+      });
+
+      try {
+        await Promise.race([
+          lockAcquired,
+          timeoutPromise,
+          holderPromise.then(() => {
+            throw new Error("La sesión que retiene el lock terminó antes de señalizar lockAcquired");
+          }),
+        ]);
+      } finally {
+        clearTimeout(lockTimeoutHandle!);
+      }
+
+      // Sesión 2: la operación bajo prueba debe quedar bloqueada por holderPid.
+      operationPromise = operation()
+        .then((result) => {
+          operationSettled = true;
+          return result;
+        })
+        .catch((err) => {
+          operationSettled = true;
+          throw err;
+        });
+
+      let lockWaitDetected = false;
+      let blockedStatement: string | null = null;
+      const pollDeadline = Date.now() + 5000;
+      while (Date.now() < pollDeadline) {
+        const blockedSessions = await prisma.$queryRaw<
+          Array<{ pid: number; query: string }>
+        >`
+          SELECT pid, query
+          FROM pg_stat_activity
+          WHERE ${holderPid} = ANY(pg_blocking_pids(pid))
+        `;
+
+        if (blockedSessions.length > 0) {
+          // La operación quedó esperando por el lock: se comprueba que la sentencia bloqueada
+          // sea el `FOR UPDATE` que el caso de uso debe emitir sobre la fila de afiliación.
+          lockWaitDetected = blockedSessions.some(
+            (session) =>
+              session.query.includes("FOR UPDATE") &&
+              session.query.includes("ProfessionalTenantAffiliation"),
+          );
+          blockedStatement = blockedSessions[0].query;
+          break;
+        }
+
+        // Si la operación terminó sin haber sido bloqueada, el caso de uso no está
+        // adquiriendo el lock: se corta el sondeo para fallar de inmediato con diagnóstico
+        // explícito en lugar de agotar el tiempo límite de la prueba.
+        if (operationSettled) {
+          break;
+        }
+        await new Promise((resolve) => setTimeout(resolve, 25));
+      }
+
+      // Aserciones clave: la operación del caso de uso emitió el FOR UPDATE sobre la afiliación
+      // y quedó esperando por el lock retenido por la otra sesión.
+      expect(
+        lockWaitDetected,
+        `Sentencia observada esperando por el lock: ${blockedStatement ?? "ninguna"}`,
+      ).toBe(true);
+      expect(operationSettled).toBe(false);
+
+      // Liberar la barrera: la operación se desbloquea y completa.
+      signalProceed();
+      const result = await operationPromise;
+      expect(operationSettled).toBe(true);
+
+      await holderPromise;
+      return result;
+    } finally {
+      signalProceed();
+      await holderPromise.catch(() => {});
+      if (operationPromise) {
+        await operationPromise.catch(() => {});
+      }
+    }
+  }
+
+  it("el envío de contenido del caso de uso espera por el lock de afiliación retenido por otra sesión", async () => {
+    const previous = await prisma.professionalAffiliationRevision.findFirst({
+      where: { affiliationId: affiliation.id },
+      orderBy: { revisionNumber: "desc" },
+    });
+    expect(previous).not.toBeNull();
+
+    const result = await runUnderHeldAffiliationLock(() =>
+      submitUseCase.execute({
+        tenantId: tenant.id,
+        affiliationId: affiliation.id,
+        actorUserId: professionalUser.id,
+        content: {
+          description: "Descripción propuesta bajo lock retenido",
+          socialLinks: [],
+        },
+      }),
+    );
+
+    // La nueva versión solo pudo crearse tras liberar el lock de la afiliación.
+    expect(result.revision.revisionNumber).toBe(previous!.revisionNumber + 1);
+    expect(result.revision.status).toBe("PENDING_REVIEW");
+  });
+
+  it("la decisión del OWNER en el caso de uso espera por el lock de afiliación retenido por otra sesión", async () => {
+    const pending = await prisma.professionalAffiliationRevision.findFirst({
+      where: { affiliationId: affiliation.id, status: "PENDING_REVIEW" },
+      orderBy: { revisionNumber: "desc" },
+    });
+    expect(pending).not.toBeNull();
+
+    const result = await runUnderHeldAffiliationLock(() =>
+      reviewUseCase.execute({
+        tenantId: tenant.id,
+        affiliationId: affiliation.id,
+        revisionId: pending!.id,
+        reviewerUserId: ownerUser.id,
+        decision: "APPROVE",
+      }),
+    );
+
+    expect(result.revision.status).toBe("APPROVED");
   });
 });
 

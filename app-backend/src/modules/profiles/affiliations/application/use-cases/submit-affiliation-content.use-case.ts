@@ -11,9 +11,11 @@
 import type { AffiliationContent } from "../../domain/affiliation-types";
 import {
   AffiliationNotFoundError,
+  DuplicateSocialLinkTypeError,
   InvalidAffiliationTransitionError,
   ObsoleteRevisionError,
   ProfessionalProfileNotFoundError,
+  TenantNotActiveError,
   UnauthorizedAffiliationActionError,
 } from "../../domain/affiliation-errors";
 import type { ProfessionalProfileOwnerChecker } from "../ports/professional-profile-owner-checker";
@@ -57,6 +59,8 @@ export class SubmitAffiliationContentUseCase {
    * @returns {Promise<SubmitAffiliationContentOutput>} Resultado con la nueva revisión creada y bandera de reemplazo.
    *
    * @throws {ProfessionalProfileNotFoundError} Si el usuario no tiene perfil profesional registrado.
+   * @throws {TenantNotActiveError} Si el tenant no existe o no está activo.
+   * @throws {DuplicateSocialLinkTypeError} Si el contenido incluye enlaces duplicados para la misma red social.
    * @throws {AffiliationNotFoundError} Si la afiliación no existe o no pertenece al tenant.
    * @throws {UnauthorizedAffiliationActionError} Si el profesional no es dueño de la afiliación.
    * @throws {InvalidAffiliationTransitionError} Si la afiliación no se encuentra en estado ACTIVE.
@@ -73,9 +77,26 @@ export class SubmitAffiliationContentUseCase {
       throw new ProfessionalProfileNotFoundError(input.actorUserId);
     }
 
-    // 2. Ejecutar dentro de la unidad de trabajo (Unit of Work) transaccional.
+    // 2. Valida que no haya enlaces sociales duplicados por tipo.
+    if (input.content.socialLinks && input.content.socialLinks.length > 0) {
+      const seenTypes = new Set<string>();
+      for (const link of input.content.socialLinks) {
+        if (seenTypes.has(link.type)) {
+          throw new DuplicateSocialLinkTypeError(link.type);
+        }
+        seenTypes.add(link.type);
+      }
+    }
+
+    // 3. Ejecutar dentro de la unidad de trabajo (Unit of Work) transaccional.
     return await this.unitOfWork.execute(async (repos) => {
-      // 2.1 Bloqueo pesimista de fila en PostgreSQL para serializar cualquier
+      // 3.1 Valida que el tenant exista y esté en estado ACTIVE.
+      const isTenantActive = await repos.tenants.isActiveTenant(input.tenantId);
+      if (!isTenantActive) {
+        throw new TenantNotActiveError(input.tenantId);
+      }
+
+      // 3.2 Bloqueo pesimista de fila en PostgreSQL para serializar cualquier
       // operación concurrente sobre esta afiliación y sus revisiones.
       const locked = await repos.affiliations.lockForRevisionWorkflow(
         input.tenantId,
@@ -89,7 +110,7 @@ export class SubmitAffiliationContentUseCase {
         );
       }
 
-      // 2.2 Obtener la afiliación y verificar propiedad y estado.
+      // 3.3 Obtener la afiliación y verificar propiedad y estado.
       const affiliation = await repos.affiliations.findById(
         input.tenantId,
         input.affiliationId,

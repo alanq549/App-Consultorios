@@ -16,6 +16,7 @@ import {
   AffiliationNotFoundError,
   ObsoleteRevisionError,
   SelfReviewForbiddenError,
+  TenantNotActiveError,
   UnauthorizedAffiliationActionError,
   InvalidAffiliationTransitionError,
 } from "../../domain/affiliation-errors";
@@ -88,6 +89,12 @@ export class ReviewAffiliationRevisionUseCase {
 
     // Ejecutar la decisión atómicamente dentro del Unit of Work transaccional.
     return await this.unitOfWork.execute(async (repos) => {
+      // 1.5 Valida que el tenant exista y esté en estado ACTIVE.
+      const isTenantActive = await repos.tenants.isActiveTenant(input.tenantId);
+      if (!isTenantActive) {
+        throw new TenantNotActiveError(input.tenantId);
+      }
+
       // 2. Revalidar dentro del límite transaccional que el revisor mantenga su membresía activa como OWNER.
       // Utilizamos lockActiveMembership directamente sobre el repositorio transaccional para bloquear
       // la fila bajo la misma transacción y prevenir revocaciones concurrentes sin caer en fallbacks no transaccionales.
@@ -95,7 +102,6 @@ export class ReviewAffiliationRevisionUseCase {
         input.reviewerUserId,
         input.tenantId,
       );
-
 
       if (!membership || membership.role !== "OWNER") {
         throw new UnauthorizedAffiliationActionError(

@@ -35,6 +35,11 @@ describe("PrismaActiveMembershipChecker", () => {
         tenantId: true,
         role: true,
         status: true,
+        tenant: {
+          select: {
+            status: true,
+          },
+        },
       },
     });
   });

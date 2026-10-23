@@ -11,7 +11,9 @@ import { Prisma } from "@prisma/client";
 import type { AffiliationContent } from "../../domain/affiliation-types";
 import {
   AffiliationAlreadyExistsError,
+  DuplicateSocialLinkTypeError,
   ProfessionalProfileNotFoundError,
+  TenantNotActiveError,
 } from "../../domain/affiliation-errors";
 import type { ProfessionalProfileOwnerChecker } from "../ports/professional-profile-owner-checker";
 import type {
@@ -46,6 +48,8 @@ export class RequestAffiliationUseCase {
    * @returns La afiliación y la revisión creadas.
    *
    * @throws {ProfessionalProfileNotFoundError} Si el usuario autenticado no posee un perfil profesional.
+   * @throws {TenantNotActiveError} Si el tenant no existe o no está activo.
+   * @throws {DuplicateSocialLinkTypeError} Si el contenido incluye enlaces duplicados para la misma red social.
    * @throws {AffiliationAlreadyExistsError} Si ya existe una afiliación para ese perfil en el tenant.
    */
   async execute(
@@ -59,10 +63,27 @@ export class RequestAffiliationUseCase {
       throw new ProfessionalProfileNotFoundError(input.actorUserId);
     }
 
+    // 2. Valida que no haya enlaces sociales duplicados por tipo.
+    if (input.content.socialLinks && input.content.socialLinks.length > 0) {
+      const seenTypes = new Set<string>();
+      for (const link of input.content.socialLinks) {
+        if (seenTypes.has(link.type)) {
+          throw new DuplicateSocialLinkTypeError(link.type);
+        }
+        seenTypes.add(link.type);
+      }
+    }
+
     try {
-      // 2. Ejecuta la creación atómica dentro de la unidad de trabajo (Unit of Work).
+      // 3. Ejecuta la creación atómica dentro de la unidad de trabajo (Unit of Work).
       return await this.unitOfWork.execute(async (repos) => {
-        // 2.1 Verifica duplicados antes de insertar.
+        // 3.1 Valida que el tenant exista y esté en estado ACTIVE.
+        const isTenantActive = await repos.tenants.isActiveTenant(input.tenantId);
+        if (!isTenantActive) {
+          throw new TenantNotActiveError(input.tenantId);
+        }
+
+        // 3.2 Verifica duplicados antes de insertar.
         const existing =
           await repos.affiliations.findByProfessionalProfileAndTenant(
             professionalProfileId,
@@ -77,14 +98,14 @@ export class RequestAffiliationUseCase {
           );
         }
 
-        // 2.2 Crea la afiliación en estado inicial PENDING_REVIEW.
+        // 3.3 Crea la afiliación en estado inicial PENDING_REVIEW.
         const affiliation = await repos.affiliations.create({
           professionalProfileId,
           tenantId: input.tenantId,
           status: "PENDING_REVIEW",
         });
 
-        // 2.3 Crea la primera revisión (versión 1) en PENDING_REVIEW junto a sus redes sociales.
+        // 3.4 Crea la primera revisión (versión 1) en PENDING_REVIEW junto a sus redes sociales.
         const revision = await repos.revisions.create({
           tenantId: input.tenantId,
           affiliationId: affiliation.id,
@@ -94,7 +115,7 @@ export class RequestAffiliationUseCase {
           socialLinks: input.content.socialLinks,
         });
 
-        // 2.4 Registra el evento de auditoría inicial (APPLY).
+        // 3.5 Registra el evento de auditoría inicial (APPLY).
         await repos.audit.append({
           tenantId: input.tenantId,
           affiliationId: affiliation.id,
@@ -109,16 +130,37 @@ export class RequestAffiliationUseCase {
         return { affiliation, revision };
       });
     } catch (error: unknown) {
-      // Manejo de condición de carrera si dos peticiones concurrentes superan el findBy... simultáneamente
-      // y la restricción UNIQUE(professionalProfileId, tenantId) de PostgreSQL/Prisma salta.
+      // Manejo estricto de condición de carrera si dos peticiones concurrentes superan el findBy... simultáneamente
+      // y la restricción UNIQUE(professionalProfileId, tenantId) salta en la base de datos.
+      // Se discrimina por target para NO enmascarar errores de otras tablas (ej. redes sociales).
       if (
         error instanceof Prisma.PrismaClientKnownRequestError &&
         error.code === "P2002"
       ) {
-        throw new AffiliationAlreadyExistsError(
-          professionalProfileId,
-          input.tenantId,
-        );
+        const target = Array.isArray(error.meta?.target)
+          ? error.meta.target.join(",")
+          : String(error.meta?.target ?? "");
+        const message = error.message ?? "";
+
+        const isSocialLinkConflict =
+          target.includes("SocialLink") ||
+          target.includes("revisionId") ||
+          message.includes("ProfessionalAffiliationRevisionSocialLink") ||
+          message.includes("type");
+
+        const isAffiliationConflict =
+          target.includes("professionalProfileId") ||
+          target.includes("tenantId") ||
+          target.includes("ProfessionalTenantAffiliation") ||
+          message.includes("professionalProfileId") ||
+          message.includes("ProfessionalTenantAffiliation");
+
+        if (isAffiliationConflict && !isSocialLinkConflict) {
+          throw new AffiliationAlreadyExistsError(
+            professionalProfileId,
+            input.tenantId,
+          );
+        }
       }
 
       throw error;

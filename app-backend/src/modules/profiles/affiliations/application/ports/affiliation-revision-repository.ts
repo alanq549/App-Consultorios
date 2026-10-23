@@ -75,6 +75,14 @@ export interface AffiliationRevisionRepository {
   ): Promise<AffiliationRevisionRecord | null>;
 
   /**
+   * Lista todas las revisiones asociadas a una afiliación dentro de un tenant, ordenadas por número de revisión descendente.
+   */
+  findByAffiliationId(
+    tenantId: number,
+    affiliationId: number,
+  ): Promise<AffiliationRevisionRecord[]>;
+
+  /**
    * Registra y guarda una nueva propuesta de revisión vinculada al tenant correspondiente.
    */
   create(

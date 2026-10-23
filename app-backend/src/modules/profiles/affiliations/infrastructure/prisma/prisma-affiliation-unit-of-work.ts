@@ -16,6 +16,7 @@ import { PrismaAffiliationRepository } from "./prisma-affiliation-repository";
 import { PrismaAffiliationRevisionRepository } from "./prisma-affiliation-revision-repository";
 import { PrismaAffiliationAuditRepository } from "./prisma-affiliation-audit-repository";
 import { PrismaActiveMembershipChecker } from "./prisma-active-membership-checker";
+import { PrismaActiveTenantChecker } from "./prisma-active-tenant-checker";
 
 import prisma from "@/shared/database/prisma";
 
@@ -50,6 +51,7 @@ export class PrismaAffiliationUnitOfWork
         revisions: new PrismaAffiliationRevisionRepository(tx),
         audit: new PrismaAffiliationAuditRepository(tx),
         memberships: new PrismaActiveMembershipChecker(tx),
+        tenants: new PrismaActiveTenantChecker(tx as any),
       };
 
       // Ejecuta la lógica del caso de uso pasando el conjunto de repositorios aislados.

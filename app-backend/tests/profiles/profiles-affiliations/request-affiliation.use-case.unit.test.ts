@@ -75,6 +75,8 @@ describe("RequestAffiliationUseCase", () => {
     mockAffiliationsRepo = {
       findById: vi.fn(),
       findByProfessionalProfileAndTenant: vi.fn().mockResolvedValue(null),
+      findByTenant: vi.fn().mockResolvedValue([]),
+      findByProfessionalProfile: vi.fn().mockResolvedValue([]),
       create: vi.fn().mockResolvedValue(sampleAffiliation),
       lockForRevisionWorkflow: vi.fn(),
       updateStatusIfCurrent: vi.fn(),
@@ -83,6 +85,7 @@ describe("RequestAffiliationUseCase", () => {
     mockRevisionsRepo = {
       findById: vi.fn(),
       findLatestByAffiliationId: vi.fn(),
+      findByAffiliationId: vi.fn().mockResolvedValue([]),
       create: vi.fn().mockResolvedValue(sampleRevision),
       updateStatusIfCurrent: vi.fn(),
     };
@@ -99,6 +102,7 @@ describe("RequestAffiliationUseCase", () => {
         nextStatus: "PENDING_REVIEW",
         createdAt: new Date(),
       }),
+      findByAffiliation: vi.fn().mockResolvedValue([]),
     };
 
     mockUnitOfWork = {
@@ -108,6 +112,7 @@ describe("RequestAffiliationUseCase", () => {
           revisions: mockRevisionsRepo,
           audit: mockAuditRepo,
           memberships: {} as any,
+          tenants: { isActiveTenant: vi.fn().mockResolvedValue(true) },
         }),
       ),
     };
@@ -216,13 +221,55 @@ describe("RequestAffiliationUseCase", () => {
     );
   });
 
-  it("propaga cualquier error inesperado dentro de la transacción para garantizar rollback", async () => {
-    const unexpectedError = new Error("Fallo de red o base de datos");
-
-    vi.mocked(mockRevisionsRepo.create).mockRejectedValueOnce(unexpectedError);
+  it("lanza TenantNotActiveError si el tenant no se encuentra activo", async () => {
+    mockUnitOfWork.execute = vi.fn().mockImplementation((work) =>
+      work({
+        affiliations: mockAffiliationsRepo,
+        revisions: mockRevisionsRepo,
+        audit: mockAuditRepo,
+        memberships: {} as any,
+        tenants: { isActiveTenant: vi.fn().mockResolvedValue(false) },
+      }),
+    );
 
     await expect(useCase.execute(sampleInput)).rejects.toThrow(
-      "Fallo de red o base de datos",
+      "no existe o no se encuentra activo",
+    );
+  });
+
+  it("lanza DuplicateSocialLinkTypeError si se envían redes sociales duplicadas por tipo", async () => {
+    const invalidInput = {
+      ...sampleInput,
+      content: {
+        description: "Bio",
+        socialLinks: [
+          { type: "INSTAGRAM" as const, url: "https://instagram.com/doc1" },
+          { type: "INSTAGRAM" as const, url: "https://instagram.com/doc2" },
+        ],
+      },
+    };
+
+    await expect(useCase.execute(invalidInput)).rejects.toThrow(
+      "No se permite más de un enlace para la red social INSTAGRAM",
+    );
+  });
+
+  it("NO enmascara un error P2002 de enlaces sociales como conflicto de afiliación", async () => {
+    const prismaSocialLinkError = new Prisma.PrismaClientKnownRequestError(
+      "Unique constraint failed on ProfessionalAffiliationRevisionSocialLink (revisionId, type)",
+      {
+        code: "P2002",
+        clientVersion: "5.0.0",
+        meta: { target: ["revisionId", "type"] },
+      },
+    );
+
+    vi.mocked(mockRevisionsRepo.create).mockRejectedValueOnce(
+      prismaSocialLinkError,
+    );
+
+    await expect(useCase.execute(sampleInput)).rejects.toThrow(
+      prismaSocialLinkError,
     );
   });
 });

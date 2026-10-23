@@ -42,10 +42,19 @@ export class PrismaActiveMembershipChecker implements ActiveMembershipChecker {
         tenantId: true,
         role: true,
         status: true,
+        tenant: {
+          select: {
+            status: true,
+          },
+        },
       },
     });
 
-    if (!membership || membership.status !== "ACTIVE") {
+    if (
+      !membership ||
+      membership.status !== "ACTIVE" ||
+      ((membership as any).tenant && (membership as any).tenant.status !== "ACTIVE")
+    ) {
       return null;
     }
 
@@ -64,12 +73,15 @@ export class PrismaActiveMembershipChecker implements ActiveMembershipChecker {
     userId: number,
     tenantId: number,
   ): Promise<ActiveMembershipContext | null> {
-    // Use raw query to acquire a row-level lock.
+    // Use raw query to acquire a row-level lock on the membership row while checking tenant status.
     const rows = await (this.prisma as any).$queryRaw<any[]>`
-      SELECT "userId", "tenantId", "role", "status"
-      FROM "TenantMembership"
-      WHERE "userId" = ${userId} AND "tenantId" = ${tenantId}
-      FOR UPDATE`
+      SELECT tm."userId", tm."tenantId", tm."role", tm."status"
+      FROM "TenantMembership" tm
+      JOIN "Tenant" t ON tm."tenantId" = t."id"
+      WHERE tm."userId" = ${userId}
+        AND tm."tenantId" = ${tenantId}
+        AND t."status" = 'ACTIVE'
+      FOR UPDATE OF tm`
     ;
     const membership = rows[0];
     if (!membership || membership.status !== "ACTIVE") {

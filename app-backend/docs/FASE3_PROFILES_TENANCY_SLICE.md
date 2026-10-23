@@ -5,20 +5,23 @@
 | Parte | Estado |
 |---|---|
 | A — directorio público tenant-scoped | **APPROVED** (2026-10-15); schema/migración y queries ya están. |
-| B — afiliación propia, revisión OWNER y auditoría | Dominio listo (30/30); aplicación, persistencia y HTTP pendientes. |
+| B — afiliación propia, revisión OWNER y auditoría | **COMPLETED & TESTED** y cerrado (2026-10-23); dominio (33/33), casos de uso y UoW transaccional, HTTP (`/api/professionals/me/affiliations`, `/api/tenancy/affiliations`), validación de tenant activo, concurrencia pesimista en PostgreSQL verificada a nivel de repositorio y de caso de uso, y pruebas E2E (102/102). Sin hallazgos abiertos del Code Reviewer. |
 | C — backfill y expiración de auditoría | Diferido hasta tener mappings/operación SaaS; no asignar tenants automáticamente. |
 
 El schema/migración aditiva ya contiene afiliación, revisiones, links y auditoría. No crear otra migración salvo que el diseño revisado detecte un gap concreto.
 
 ## Revisión de lo implementado para B
 
-Existen estados/tipos, máquina de estados, puertos de membership/afiliación/revisión/auditoría y pruebas unitarias de dominio.
+Existen estados/tipos, máquina de estados, puertos de membership/afiliación/revisión/auditoría/tenant-checker, casos de uso completos para profesional y OWNER, adaptadores Prisma transaccionales (`PrismaAffiliationUnitOfWork`), endpoints HTTP protegidos y pruebas unitarias, de integración PostgreSQL y HTTP E2E.
 
 Validación observada:
 
-- `npx tsc --noEmit`: pasa.
-- `npx vitest run tests/profiles/profiles-affiliations/domain-state-machine.unit.test.ts`: **30/30** (2026-10-17).
-- Aún faltan casos de uso, adapters Prisma, transacciones y endpoints B; los 30 tests validan reglas de dominio, no el slice integrado.
+- `npx tsc --noEmit`: pasa sin errores (0).
+- `npm run build`: `tsc && tsc-alias` compila a `dist/` exitosamente (0).
+- `npx vitest run tests/profiles/profiles-affiliations`: **102/102 tests aprobados** (10 archivos de prueba).
+- `npx vitest run`: **185/185 tests aprobados** en toda la suite (23 archivos de prueba sin regresiones).
+- `npx vitest run tests/profiles/profiles-affiliations/concurrency-and-locking.integration.test.ts`: **7/7 tests aprobados**; comprueba en `pg_stat_activity`/`pg_blocking_pids` que el `FOR UPDATE` sobre `ProfessionalTenantAffiliation` se emite tanto en el repositorio como en los casos de uso de envío de contenido y de decisión del OWNER.
+- Falsación ejecutada (mutación temporal, revertida): al retirar el lock del caso de uso, la sesión competidora queda bloqueada por la FK del `INSERT` (`KEY SHARE`), no por el `FOR UPDATE`; la aserción exige la sentencia específica, por lo que un bloqueo incidental no satisface la prueba.
 
 ## Orden de implementación de B
 
@@ -44,4 +47,4 @@ Backfill solo con mappings explícitos aprobados y dry-run; hoy no hay fuente pa
 
 ## Aceptación de B
 
-30/30 pruebas de dominio; integración HTTP y persistencia multi-tenant; auditoría atómica; suite completa, `tsc`, build y migración verificados; aprobación explícita del Code Reviewer.
+33/33 pruebas de dominio; integración HTTP y persistencia multi-tenant; auditoría atómica; suite completa, `tsc`, build y migración verificados; Code Reviewer: P2 de concurrencia (lock del repositorio) resuelto, cobertura de lock por caso de uso añadida y sin hallazgos abiertos en la revisión final (2026-10-23).

@@ -165,6 +165,27 @@ export class PrismaAffiliationRevisionRepository
         return record ? toRecord(record) : null;
     }
 
+    /// Recupera todas las revisiones enviadas para una afiliación dentro de un tenant.
+    async findByAffiliationId(
+        tenantId: number,
+        affiliationId: number,
+    ): Promise<AffiliationRevisionRecord[]> {
+        const records = await this.tx.professionalAffiliationRevision.findMany({
+            where: {
+                affiliationId,
+                affiliation: {
+                    is: { tenantId },
+                },
+            },
+            orderBy: {
+                revisionNumber: "desc",
+            },
+            select: revisionSelect,
+        });
+
+        return records.map(toRecord);
+    }
+
     /// Crea y persiste una nueva revisión asociada a una afiliación, incluyendo sus enlaces sociales en una sola operación.
     /// 
     /// @throws {Error} Lanza una excepción si la afiliación especificada no pertenece al tenant dado.

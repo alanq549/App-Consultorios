@@ -99,6 +99,8 @@ describe("ReviewAffiliationRevisionUseCase", () => {
     mockAffiliationsRepo = {
       findById: vi.fn().mockResolvedValue(samplePendingAffiliation),
       findByProfessionalProfileAndTenant: vi.fn(),
+      findByTenant: vi.fn().mockResolvedValue([]),
+      findByProfessionalProfile: vi.fn().mockResolvedValue([]),
       create: vi.fn(),
       lockForRevisionWorkflow: vi.fn().mockResolvedValue(true),
       updateStatusIfCurrent: vi.fn().mockImplementation((_, __, ___, nextStatus) =>
@@ -112,6 +114,7 @@ describe("ReviewAffiliationRevisionUseCase", () => {
     mockRevisionsRepo = {
       findById: vi.fn().mockResolvedValue(samplePendingRevision),
       findLatestByAffiliationId: vi.fn().mockResolvedValue(samplePendingRevision),
+      findByAffiliationId: vi.fn().mockResolvedValue([]),
       create: vi.fn(),
       updateStatusIfCurrent: vi.fn().mockImplementation((_, __, ___, nextStatus) =>
         Promise.resolve({
@@ -123,6 +126,7 @@ describe("ReviewAffiliationRevisionUseCase", () => {
 
     mockAuditRepo = {
       append: vi.fn().mockResolvedValue({} as any),
+      findByAffiliation: vi.fn().mockResolvedValue([]),
     };
 
     mockUnitOfWork = {
@@ -132,6 +136,7 @@ describe("ReviewAffiliationRevisionUseCase", () => {
           revisions: mockRevisionsRepo,
           audit: mockAuditRepo,
           memberships: mockMembershipChecker,
+          tenants: { isActiveTenant: vi.fn().mockResolvedValue(true) },
         }),
       ),
     };

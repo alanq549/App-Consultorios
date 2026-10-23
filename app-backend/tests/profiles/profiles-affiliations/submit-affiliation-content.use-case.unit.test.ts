@@ -78,6 +78,8 @@ describe("SubmitAffiliationContentUseCase", () => {
     mockAffiliationsRepo = {
       findById: vi.fn().mockResolvedValue(sampleActiveAffiliation),
       findByProfessionalProfileAndTenant: vi.fn(),
+      findByTenant: vi.fn().mockResolvedValue([]),
+      findByProfessionalProfile: vi.fn().mockResolvedValue([]),
       create: vi.fn(),
       lockForRevisionWorkflow: vi.fn().mockResolvedValue(true),
       updateStatusIfCurrent: vi.fn(),
@@ -86,6 +88,7 @@ describe("SubmitAffiliationContentUseCase", () => {
     mockRevisionsRepo = {
       findById: vi.fn(),
       findLatestByAffiliationId: vi.fn().mockResolvedValue(null),
+      findByAffiliationId: vi.fn().mockResolvedValue([]),
       create: vi.fn().mockResolvedValue(sampleCreatedRevision),
       updateStatusIfCurrent: vi.fn().mockResolvedValue({
         updated: true,
@@ -95,6 +98,7 @@ describe("SubmitAffiliationContentUseCase", () => {
 
     mockAuditRepo = {
       append: vi.fn().mockResolvedValue({} as any),
+      findByAffiliation: vi.fn().mockResolvedValue([]),
     };
 
     mockUnitOfWork = {
@@ -104,6 +108,7 @@ describe("SubmitAffiliationContentUseCase", () => {
           revisions: mockRevisionsRepo,
           audit: mockAuditRepo,
           memberships: {} as any,
+          tenants: { isActiveTenant: vi.fn().mockResolvedValue(true) },
         }),
       ),
     };

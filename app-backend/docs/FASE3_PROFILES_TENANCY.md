@@ -30,4 +30,4 @@ Services, horarios, citas, Reviews/rating, clientes, certificados públicos, onb
 
 ## Implementación
 
-Ver [FASE3_PROFILES_TENANCY_SLICE.md](FASE3_PROFILES_TENANCY_SLICE.md). Slice A fue aprobado; Slice B está pendiente.
+Ver [FASE3_PROFILES_TENANCY_SLICE.md](FASE3_PROFILES_TENANCY_SLICE.md). Slice A aprobado; Slice B **COMPLETED & TESTED** y cerrado (2026-10-23), con documentación sincronizada y sin hallazgos abiertos del Code Reviewer; Slice C diferido hasta contar con mappings explícitos aprobados y con la purga de auditoría lista.

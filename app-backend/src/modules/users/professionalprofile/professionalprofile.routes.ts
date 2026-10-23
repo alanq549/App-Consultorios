@@ -79,6 +79,14 @@ router.post(
   ProfessionalSpecialtyController.requestSpecialty
 );
 
+// --------------------
+// Afiliaciones del Profesional
+// --------------------
+import professionalAffiliationRoutes from "@/modules/profiles/affiliations/http/professional-affiliations.routes";
+
+router.use("/me/affiliations", professionalAffiliationRoutes);
+router.use("/affiliations", professionalAffiliationRoutes);
+
 // Mantener la ruta dinámica al final.
 router.get(
   "/:id",

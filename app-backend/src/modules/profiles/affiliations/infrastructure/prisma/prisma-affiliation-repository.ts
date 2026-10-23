@@ -147,6 +147,38 @@ export class PrismaAffiliationRepository implements AffiliationRepository {
     return record ? toDomainRecord(record) : null;
   }
 
+  /// Lista las afiliaciones de un tenant, con filtro opcional de status.
+  async findByTenant(
+    tenantId: number,
+    filter?: { status?: AffiliationStatus },
+  ): Promise<AffiliationRecord[]> {
+    const records = await this.tx.professionalTenantAffiliation.findMany({
+      where: {
+        tenantId,
+        ...(filter?.status ? { status: toPrismaAffiliationStatus(filter.status) } : {}),
+      },
+      select: affiliationSelect,
+      orderBy: { createdAt: "desc" },
+    });
+
+    return records.map(toDomainRecord);
+  }
+
+  /// Lista las afiliaciones de un perfil profesional across tenants.
+  async findByProfessionalProfile(
+    professionalProfileId: number,
+  ): Promise<AffiliationRecord[]> {
+    const records = await this.tx.professionalTenantAffiliation.findMany({
+      where: {
+        professionalProfileId,
+      },
+      select: affiliationSelect,
+      orderBy: { createdAt: "desc" },
+    });
+
+    return records.map(toDomainRecord);
+  }
+
 
   /**
    * Bloquea la fila de la afiliación dentro de la transacción actual
