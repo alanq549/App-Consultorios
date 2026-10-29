@@ -30,4 +30,4 @@ Services, horarios, citas, Reviews/rating, clientes, certificados públicos, onb
 
 ## Implementación
 
-Ver [FASE3_PROFILES_TENANCY_SLICE.md](FASE3_PROFILES_TENANCY_SLICE.md). Slice A aprobado; Slice B **COMPLETED & TESTED** y cerrado (2026-10-23), con documentación sincronizada y sin hallazgos abiertos del Code Reviewer; Slice C diferido hasta contar con mappings explícitos aprobados y con la purga de auditoría lista.
+Ver [FASE3_PROFILES_TENANCY_SLICE.md](FASE3_PROFILES_TENANCY_SLICE.md). Slice A aprobado; Slice B **COMPLETED & TESTED** y cerrado (2026-10-23), con documentación sincronizada y sin hallazgos abiertos del Code Reviewer; Slice C: retención de auditoría (C1) y purga de auditoría vencida (C2) **COMPLETED & TESTED** (2026-10-24); el backfill permanece diferido hasta contar con mappings perfil–tenant explícitos aprobados.
