@@ -94,4 +94,16 @@ export interface AffiliationAuditRepository {
     tenantId: number,
     affiliationId: number,
   ): Promise<AffiliationAuditEventRecord[]>;
+
+  /// Obtiene un evento de auditoría puntual garantizando el aislamiento por tenant.
+  ///
+  /// Se requiere `tenantId` explícito: un evento de otro tenant se trata como no encontrado.
+  ///
+  /// @param tenantId ID del tenant propietario del evento.
+  /// @param auditEventId ID del evento de auditoría.
+  /// @returns El evento encontrado o `null` si no existe en ese tenant.
+  findById(
+    tenantId: number,
+    auditEventId: number,
+  ): Promise<AffiliationAuditEventRecord | null>;
 }

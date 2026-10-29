@@ -1,6 +1,11 @@
 ///src/modules/specialty/specialty.service.ts
 import prisma from "@/shared/database/prisma";
 import { CreateSpecialtyDTO, UpdateSpecialtyDTO } from "./specialty.dto";
+import { PrismaActiveAffiliationChecker } from "@/modules/profiles/affiliations/infrastructure/prisma/prisma-active-affiliation-checker";
+
+/// Alcance multi-tenant del catálogo: la relación profesional–especialidad no guarda `tenantId`,
+/// así que la pertenencia se deriva de la afiliación activa del perfil en el tenant solicitado.
+const activeAffiliationChecker = new PrismaActiveAffiliationChecker();
 
 export class SpecialtyService {
   static async create(data: CreateSpecialtyDTO) {
@@ -38,7 +43,23 @@ export class SpecialtyService {
     });
   }
 
-  static async listByProfessional(profileId: number) {
+  /// Lista las especialidades de un profesional dentro del tenant seleccionado.
+  ///
+  /// El catálogo global de `Specialty` no es tenant-owned, pero esta vista es la proyección
+  /// pública de un profesional, así que se rige por el mismo alcance que su catálogo de
+  /// servicios: sólo se expone en tenants donde mantiene una afiliación activa.
+  ///
+  /// @returns La lista de especialidades del profesional, o `null` si no pertenece al tenant.
+  static async listByProfessional(profileId: number, tenantId: number) {
+    const isAffiliated = await activeAffiliationChecker.hasActiveAffiliation(
+      profileId,
+      tenantId,
+    );
+
+    if (!isAffiliated) {
+      return null;
+    }
+
     return prisma.professionalSpecialty.findMany({
       where: {
         professionalId: profileId,

@@ -14,6 +14,9 @@ import type {
   JsonObject
 } from "../../application/ports/affiliation-audit-repository";
 
+/// Fila del modelo Prisma de eventos de auditoría tal como la devuelve la base de datos.
+type AuditEventRow = Prisma.ProfessionalAffiliationAuditEventGetPayload<Record<string, never>>;
+
 /**
  * Repositorio de infraestructura para la insersión inmutable (append-only)
  * de eventos de auditoría sobre afiliaciones.
@@ -56,7 +59,48 @@ export class PrismaAffiliationAuditRepository
       },
     });
 
-    // Mapeo del registro persistido en la base de datos al tipo de retorno del puerto (AffiliationAuditEventRecord).
+    return this.toRecord(record);
+  }
+
+  /// Obtiene los eventos de auditoría registrados para una afiliación en un tenant.
+  async findByAffiliation(
+    tenantId: number,
+    affiliationId: number,
+  ): Promise<AffiliationAuditEventRecord[]> {
+    const records =
+      await this.tx.professionalAffiliationAuditEvent.findMany({
+        where: {
+          tenantId,
+          affiliationId,
+        },
+        orderBy: {
+          occurredAt: "asc",
+        },
+      });
+
+    return records.map((record) => this.toRecord(record));
+  }
+
+  /// Obtiene un evento de auditoría puntual dentro del tenant indicado.
+  /// Devuelve `null` si el evento no existe o pertenece a otro tenant.
+  async findById(
+    tenantId: number,
+    auditEventId: number,
+  ): Promise<AffiliationAuditEventRecord | null> {
+    const record =
+      await this.tx.professionalAffiliationAuditEvent.findFirst({
+        where: {
+          id: auditEventId,
+          tenantId,
+        },
+      });
+
+    return record ? this.toRecord(record) : null;
+  }
+
+  /// Mapea un registro persistido al tipo de retorno del puerto, convirtiendo el campo JSON
+  /// a un objeto plano seguro.
+  private toRecord(record: AuditEventRow): AffiliationAuditEventRecord {
     return {
       id: record.id,
       tenantId: record.tenantId,
@@ -78,43 +122,5 @@ export class PrismaAffiliationAuditRepository
       occurredAt: record.occurredAt,
       createdAt: record.createdAt,
     };
-  }
-
-  /// Obtiene los eventos de auditoría registrados para una afiliación en un tenant.
-  async findByAffiliation(
-    tenantId: number,
-    affiliationId: number,
-  ): Promise<AffiliationAuditEventRecord[]> {
-    const records =
-      await this.tx.professionalAffiliationAuditEvent.findMany({
-        where: {
-          tenantId,
-          affiliationId,
-        },
-        orderBy: {
-          occurredAt: "asc",
-        },
-      });
-
-    return records.map((record) => ({
-      id: record.id,
-      tenantId: record.tenantId,
-      affiliationId: record.affiliationId,
-      action: record.action,
-      actorUserId: record.actorUserId,
-      revisionId: record.revisionId,
-      previousStatus: record.previousStatus,
-      nextStatus: record.nextStatus,
-      reason: record.reason,
-      changedFields:
-        record.changedFields === null ||
-        typeof record.changedFields !== "object" ||
-        Array.isArray(record.changedFields)
-          ? null
-          : (record.changedFields as JsonObject),
-      sourceReference: record.sourceReference,
-      occurredAt: record.occurredAt,
-      createdAt: record.createdAt,
-    }));
   }
 }

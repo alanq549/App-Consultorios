@@ -64,11 +64,13 @@ export type AppointmentResponseDTO = {
   } | null;
 };
 
-/// clientes ocacionales (invitados) los registran los profesionales
+/// clientes ocacionales (invitados) los registran los profesionales.
+/// `date` usa el mismo formato calendario (`YYYY-MM-DD`) que `CreateAppointmentSchema`: el servicio
+/// lo combina con `"T00:00:00Z"` para obtener el instante de la cita.
 export const CreateGuestAppointmentSchema = z.object({
   professionalProfileId: z.number().int(),
   serviceId: z.number().int(),
-  date: z.string().datetime(),
+  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/), // YYYY-MM-DD
   startMin: z.number().min(0).max(1440),
   notes: z.string().optional(),
   guestName: z.string(),

@@ -15,6 +15,7 @@ import type {
 import { PrismaAffiliationRepository } from "./prisma-affiliation-repository";
 import { PrismaAffiliationRevisionRepository } from "./prisma-affiliation-revision-repository";
 import { PrismaAffiliationAuditRepository } from "./prisma-affiliation-audit-repository";
+import { PrismaAffiliationAuditHoldRepository } from "./prisma-affiliation-audit-hold-repository";
 import { PrismaActiveMembershipChecker } from "./prisma-active-membership-checker";
 import { PrismaActiveTenantChecker } from "./prisma-active-tenant-checker";
 
@@ -50,6 +51,7 @@ export class PrismaAffiliationUnitOfWork
         affiliations: new PrismaAffiliationRepository(tx),
         revisions: new PrismaAffiliationRevisionRepository(tx),
         audit: new PrismaAffiliationAuditRepository(tx),
+        auditHolds: new PrismaAffiliationAuditHoldRepository(tx),
         memberships: new PrismaActiveMembershipChecker(tx),
         tenants: new PrismaActiveTenantChecker(tx as any),
       };

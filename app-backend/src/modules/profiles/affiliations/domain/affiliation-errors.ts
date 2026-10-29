@@ -175,4 +175,108 @@ export class DuplicateSocialLinkTypeError extends Error {
     );
     this.name = "DuplicateSocialLinkTypeError";
   }
-}
+}
+
+/**
+ * Error de dominio: Alcance inválido para una retención de auditoría.
+ *
+ * ¿Cuándo ocurre?
+ * Cuando se intenta retener un evento de auditoría específico sin declarar la afiliación
+ * a la que pertenece. Sin afiliación no puede verificarse que el evento corresponda al
+ * mismo tenant y a la misma afiliación declarados.
+ */
+export class InvalidAuditHoldScopeError extends Error {
+  constructor(
+    public readonly affiliationId: number | null,
+    public readonly auditEventId: number | null,
+  ) {
+    super(
+      "El alcance de la retención es inválido: retener un evento específico requiere declarar su afiliación",
+    );
+    this.name = "InvalidAuditHoldScopeError";
+  }
+}
+
+/**
+ * Error de aplicación/dominio: El evento de auditoría referenciado no existe dentro del tenant.
+ */
+export class AuditEventNotFoundError extends Error {
+  constructor(
+    public readonly auditEventId: number,
+    public readonly tenantId: number,
+  ) {
+    super(
+      `No se encontró el evento de auditoría con ID ${auditEventId} en el tenant ${tenantId}`,
+    );
+    this.name = "AuditEventNotFoundError";
+  }
+}
+
+/**
+ * Error de dominio: El evento de auditoría no pertenece a la afiliación declarada.
+ *
+ * ¿Cuándo ocurre?
+ * Cuando el evento existe en el tenant, pero su `affiliationId` difiere de la afiliación
+ * indicada en la retención (invariante `event.affiliationId == hold.affiliationId`).
+ */
+export class AuditHoldScopeMismatchError extends Error {
+  constructor(
+    public readonly auditEventId: number,
+    public readonly affiliationId: number,
+  ) {
+    super(
+      `El evento de auditoría ${auditEventId} no pertenece a la afiliación ${affiliationId}`,
+    );
+    this.name = "AuditHoldScopeMismatchError";
+  }
+}
+
+/**
+ * Error de aplicación/dominio: La retención de auditoría no existe dentro del tenant.
+ *
+ * También cubre el caso de una retención ajena al tenant: un ID de otro tenant
+ * se trata como no encontrado para no filtrar su existencia.
+ */
+export class AuditHoldNotFoundError extends Error {
+  constructor(
+    public readonly holdId: number,
+    public readonly tenantId: number,
+  ) {
+    super(
+      `No se encontró la retención de auditoría con ID ${holdId} en el tenant ${tenantId}`,
+    );
+    this.name = "AuditHoldNotFoundError";
+  }
+}
+
+/**
+ * Error de dominio: Intento de liberar una retención de auditoría ya liberada.
+ *
+ * ¿Cuándo ocurre?
+ * Cuando dos solicitudes concurrentes liberan la misma retención. La liberación es
+ * idempotente en su efecto —nunca sobrescribe la fecha ni el actor originales—,
+ * pero la segunda solicitud se rechaza de forma explícita.
+ */
+export class AuditHoldAlreadyReleasedError extends Error {
+  constructor(public readonly holdId: number) {
+    super(
+      `La retención de auditoría con ID ${holdId} ya fue liberada previamente`,
+    );
+    this.name = "AuditHoldAlreadyReleasedError";
+  }
+}
+
+/**
+ * Error de dominio: parámetro inválido en la política de retención/purga de auditoría.
+ *
+ * ¿Cuándo ocurre?
+ * Cuando una ejecución de purga recibe un plazo de retención o un tamaño de lote que no es
+ * un entero positivo. Se rechaza antes de tocar la base de datos: una política inválida
+ * (por ejemplo, un plazo en cero) eliminaría auditoría sin respetar la retención.
+ */
+export class InvalidRetentionPolicyError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "InvalidRetentionPolicyError";
+  }
+}

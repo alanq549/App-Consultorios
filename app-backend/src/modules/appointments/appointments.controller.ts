@@ -22,6 +22,7 @@ export class AppointmentsController {
       }
 
       const clientProfileId = clientProfile.id;
+      const tenantId = res.locals.tenantId as number;
 
       // 2️⃣ Validar + tipar con Zod
       const data = CreateAppointmentSchema.parse(req.body);
@@ -30,9 +31,17 @@ export class AppointmentsController {
       const appointment = await AppointmentService.create(
         clientProfileId,
         data,
+        tenantId,
       );
 
-      res.status(201).json(appointment);
+      // El profesional no pertenece al tenant seleccionado: respuesta uniforme de no encontrado.
+      if (appointment === null) {
+        return res.status(404).json({
+          message: "Perfil profesional no encontrado",
+        });
+      }
+
+      return res.status(201).json(appointment);
     } catch (err) {
       next(err);
     }
@@ -46,14 +55,22 @@ export class AppointmentsController {
 
       // 1️⃣ Obtener el professionalProfileId desde la data validada
       const professionalProfileId = guestData.professionalProfileId;
+      const tenantId = res.locals.tenantId as number;
 
       // 2️⃣ Crear la cita
       const appointment = await AppointmentService.createGuest(
         professionalProfileId,
         guestData,
+        tenantId,
       );
 
-      res.status(201).json(appointment);
+      if (appointment === null) {
+        return res.status(404).json({
+          message: "Perfil profesional no encontrado",
+        });
+      }
+
+      return res.status(201).json(appointment);
     } catch (err) {
       next(err);
     }
@@ -118,6 +135,7 @@ export class AppointmentsController {
       const professionalProfileId = Number(req.query.professionalId);
       const serviceId = Number(req.query.serviceId);
       const dateStr = req.query.date as string;
+      const tenantId = res.locals.tenantId as number;
 
       if (!professionalProfileId || !serviceId || !dateStr) {
         return res.status(400).json({ message: "Faltan parámetros" });
@@ -137,9 +155,16 @@ export class AppointmentsController {
         serviceId,
         startOfDay,
         endOfDay,
+        tenantId,
       );
 
-      res.json(slots);
+      if (slots === null) {
+        return res.status(404).json({
+          message: "Perfil profesional no encontrado",
+        });
+      }
+
+      return res.json(slots);
     } catch (err) {
       next(err);
     }

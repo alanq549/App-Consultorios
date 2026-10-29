@@ -8,9 +8,9 @@ datasource db {
   url      = env("DATABASE_URL_psg")
 }
 
-////////////////////
+//////////////////////
 /// AUTH / USER ///
-////////////////////
+//////////////////////
 
 model User {
   id         Int      @id @default(autoincrement())
@@ -31,12 +31,60 @@ model User {
   professionalProfile ProfessionalProfile?
   customConfig        CustomConfig?
 
-  tenantMemberships             TenantMembership[]
+  tenantMemberships TenantMembership[]
+
   affiliationRevisionsSubmitted ProfessionalAffiliationRevision[] @relation("AffiliationRevisionSubmittedBy")
   affiliationRevisionsReviewed  ProfessionalAffiliationRevision[] @relation("AffiliationRevisionReviewedBy")
 
+  affiliationAuditHoldsRequested ProfessionalAffiliationAuditHold[] @relation("AuditHoldRequestedBy")
+  affiliationAuditHoldsReleased  ProfessionalAffiliationAuditHold[] @relation("AuditHoldReleasedBy")
+
   @@index([role])
 }
+
+model VerificationAttempt {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  token     String
+  expiresAt DateTime
+  isUsed    Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, token])
+  @@index([userId, expiresAt])
+}
+
+model PasswordReset {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  token     String   @unique
+  expiresAt DateTime
+  isUsed    Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, expiresAt])
+}
+
+model RefreshToken {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  token     String   @unique
+  expiresAt DateTime
+  isRevoked Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, expiresAt])
+}
+
+/////////////////////////////
+/// TENANCY / MEMBERSHIP ///
+/////////////////////////////
 
 model Tenant {
   id        Int          @id @default(autoincrement())
@@ -48,9 +96,30 @@ model Tenant {
 
   memberships              TenantMembership[]
   professionalAffiliations ProfessionalTenantAffiliation[]
+  affiliationAuditHolds    ProfessionalAffiliationAuditHold[]
 
   @@index([status])
 }
+
+model TenantMembership {
+  id       Int              @id @default(autoincrement())
+  userId   Int
+  tenantId Int
+  role     TenantRole
+  status   MembershipStatus @default(ACTIVE)
+  joinedAt DateTime         @default(now())
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, tenantId])
+  @@index([tenantId, status])
+  @@index([userId, status])
+}
+
+/////////////////////////////////
+/// PROFILES / AFFILIATION ///
+/////////////////////////////////
 
 model ProfessionalTenantAffiliation {
   id                    Int                           @id @default(autoincrement())
@@ -60,9 +129,10 @@ model ProfessionalTenantAffiliation {
   createdAt             DateTime                      @default(now())
   updatedAt             DateTime                      @updatedAt
 
-  professionalProfile ProfessionalProfile               @relation(fields: [professionalProfileId], references: [id], onDelete: Restrict)
-  tenant              Tenant                            @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  professionalProfile ProfessionalProfile                @relation(fields: [professionalProfileId], references: [id], onDelete: Restrict)
+  tenant              Tenant                             @relation(fields: [tenantId], references: [id], onDelete: Restrict)
   revisions           ProfessionalAffiliationRevision[]
+  auditHolds          ProfessionalAffiliationAuditHold[]
 
   @@unique([professionalProfileId, tenantId])
   @@index([tenantId, status])
@@ -105,6 +175,10 @@ model ProfessionalAffiliationRevisionSocialLink {
   @@index([revisionId])
 }
 
+/// Registro append-only de auditoría. Las columnas de referencia (`tenantId`,
+/// `affiliationId`, `revisionId`, `actorUserId`) se mantienen como escalares
+/// deliberadamente sin `@relation`: la auditoría no debe bloquearse ni
+/// reescribirse por cambios en las entidades referenciadas.
 model ProfessionalAffiliationAuditEvent {
   id              Int                            @id @default(autoincrement())
   tenantId        Int
@@ -120,110 +194,49 @@ model ProfessionalAffiliationAuditEvent {
   occurredAt      DateTime                       @default(now())
   createdAt       DateTime                       @default(now())
 
+  auditHolds ProfessionalAffiliationAuditHold[]
+
   @@index([tenantId, affiliationId, occurredAt])
   @@index([actorUserId, occurredAt])
   @@index([createdAt])
 }
 
-model TenantMembership {
-  id       Int              @id @default(autoincrement())
-  userId   Int
-  tenantId Int
-  role     TenantRole
-  status   MembershipStatus @default(ACTIVE)
-  joinedAt DateTime         @default(now())
+/// Retención (hold) que impide la purga de auditoría de una afiliación.
+/// `auditEventId` usa `onDelete: SetNull`: cuando el evento ya es purgable, el
+/// `DELETE` del evento no queda bloqueado por holds históricos y PostgreSQL
+/// anula la referencia, conservando tenant, afiliación, motivo, actor y fechas.
+/// La consistencia `tenantId == affiliation.tenantId == event.tenantId` y
+/// `event.affiliationId == affiliationId` no es expresable en `CHECK` y se
+/// valida en aplicación/adaptador antes de crear el hold.
+model ProfessionalAffiliationAuditHold {
+  id                Int       @id @default(autoincrement())
+  tenantId          Int
+  affiliationId     Int?
+  auditEventId      Int?
+  reason            String
+  requestedByUserId Int
+  expiresAt         DateTime?
+  releasedAt        DateTime?
+  releasedByUserId  Int?
+  /// `createdAt` debe asignarlo PostgreSQL, no el cliente: `release` fija `releasedAt` con
+  /// `statement_timestamp()` (reloj de la base) y el `CHECK releasedAt >= createdAt` no admite
+  /// dos relojes. Se mantiene `@default(now())` porque la migración ya declara
+  /// `DEFAULT CURRENT_TIMESTAMP` y así no hay deriva en `prisma migrate diff`; pero como Prisma
+  /// resuelve `now()` en el cliente, el adaptador hace un INSERT explícito que omite esta
+  /// columna y deja actuar el DEFAULT. No cambiar a `dbgenerated`: provoca un `ALTER COLUMN
+  /// ... SET DEFAULT` perpetuo en el diff.
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
 
-  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
-  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenant      Tenant                             @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  affiliation ProfessionalTenantAffiliation?     @relation(fields: [affiliationId], references: [id], onDelete: Restrict)
+  event       ProfessionalAffiliationAuditEvent? @relation(fields: [auditEventId], references: [id], onDelete: SetNull)
+  requestedBy User                               @relation("AuditHoldRequestedBy", fields: [requestedByUserId], references: [id], onDelete: Restrict)
+  releasedBy  User?                              @relation("AuditHoldReleasedBy", fields: [releasedByUserId], references: [id], onDelete: Restrict)
 
-  @@unique([userId, tenantId])
-  @@index([tenantId, status])
-  @@index([userId, status])
-}
-
-enum TenantStatus {
-  ACTIVE
-  INACTIVE
-}
-
-enum TenantRole {
-  OWNER
-  MEMBER
-}
-
-enum MembershipStatus {
-  ACTIVE
-  SUSPENDED
-}
-
-model VerificationAttempt {
-  id        Int      @id @default(autoincrement())
-  userId    Int
-  token     String
-  expiresAt DateTime
-  isUsed    Boolean  @default(false)
-  createdAt DateTime @default(now())
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@unique([userId, token])
-  @@index([userId, expiresAt])
-}
-
-enum ProfessionalAffiliationStatus {
-  PENDING_REVIEW
-  ACTIVE
-  REJECTED
-  SUSPENDED
-  WITHDRAWN
-}
-
-enum AffiliationRevisionStatus {
-  PENDING_REVIEW
-  APPROVED
-  REJECTED
-  SUPERSEDED
-}
-
-enum AffiliationAuditAction {
-  APPLY
-  SUBMIT_CONTENT
-  SUPERSEDE_CONTENT
-  APPROVE_AFFILIATION
-  REJECT_AFFILIATION
-  APPROVE_CONTENT
-  REJECT_CONTENT
-  SUSPEND
-  REACTIVATE
-  WITHDRAW
-  REOPEN
-  BACKFILL
-}
-
-model PasswordReset {
-  id        Int      @id @default(autoincrement())
-  userId    Int
-  token     String   @unique
-  expiresAt DateTime
-  isUsed    Boolean  @default(false)
-  createdAt DateTime @default(now())
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@index([userId, expiresAt])
-}
-
-model RefreshToken {
-  id        Int      @id @default(autoincrement())
-  userId    Int
-  token     String   @unique
-  expiresAt DateTime
-  isRevoked Boolean  @default(false)
-  createdAt DateTime @default(now())
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@index([userId, expiresAt])
+  @@index([tenantId, affiliationId])
+  @@index([auditEventId])
+  @@index([expiresAt, releasedAt])
 }
 
 ////////////////////
@@ -483,12 +496,14 @@ model CustomConfig {
 /// ENUMS ///
 ////////////////////
 
+/// Auth / identidad
 enum Role {
   ADMIN
   PROFESSIONAL
   CLIENT
 }
 
+/// Perfiles
 enum ProfessionalStatus {
   PENDING
   APPROVED
@@ -502,6 +517,54 @@ enum SpecialtyStatus {
   REJECTED
 }
 
+/// Tenancy / membership
+enum TenantStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum TenantRole {
+  OWNER
+  MEMBER
+}
+
+enum MembershipStatus {
+  ACTIVE
+  SUSPENDED
+}
+
+/// Afiliación profesional–tenant
+enum ProfessionalAffiliationStatus {
+  PENDING_REVIEW
+  ACTIVE
+  REJECTED
+  SUSPENDED
+  WITHDRAWN
+}
+
+enum AffiliationRevisionStatus {
+  PENDING_REVIEW
+  APPROVED
+  REJECTED
+  SUPERSEDED
+}
+
+enum AffiliationAuditAction {
+  APPLY
+  SUBMIT_CONTENT
+  SUPERSEDE_CONTENT
+  APPROVE_AFFILIATION
+  REJECT_AFFILIATION
+  APPROVE_CONTENT
+  REJECT_CONTENT
+  SUSPEND
+  REACTIVATE
+  WITHDRAW
+  REOPEN
+  BACKFILL
+}
+
+/// Citas
 enum AppointmentStatus {
   PENDING
   CONFIRMED
@@ -515,6 +578,7 @@ enum PaymentStatus {
   FAILED
 }
 
+/// Preferencias de UI
 enum LayoutType {
   SIDEBAR
   TOPBAR
@@ -530,6 +594,7 @@ enum Theme {
   DARK
 }
 
+/// Enlaces sociales
 enum SocialType {
   FACEBOOK
   INSTAGRAM
@@ -537,6 +602,7 @@ enum SocialType {
   WEBSITE
 }
 
+/// Notificaciones
 enum NotificationType {
   WELCOME
   APPOINTMENT_CREATED

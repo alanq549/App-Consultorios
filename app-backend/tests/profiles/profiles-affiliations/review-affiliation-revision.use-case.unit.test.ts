@@ -127,6 +127,7 @@ describe("ReviewAffiliationRevisionUseCase", () => {
     mockAuditRepo = {
       append: vi.fn().mockResolvedValue({} as any),
       findByAffiliation: vi.fn().mockResolvedValue([]),
+      findById: vi.fn().mockResolvedValue(null),
     };
 
     mockUnitOfWork = {

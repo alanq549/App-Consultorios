@@ -26,9 +26,21 @@ export class ServiceController {
   ) {
     try {
       const profileId = Number(req.params.profileId);
-      const services = await ServiceService.findByProfessional(profileId);
+      const tenantId = res.locals.tenantId as number;
 
-      res.json(services);
+      const services = await ServiceService.findByProfessional(
+        profileId,
+        tenantId,
+      );
+
+      // El profesional no pertenece al tenant seleccionado: respuesta uniforme de no encontrado.
+      if (services === null) {
+        return res.status(404).json({
+          message: "Perfil profesional no encontrado",
+        });
+      }
+
+      return res.json(services);
     } catch (err) {
       next(err);
     }

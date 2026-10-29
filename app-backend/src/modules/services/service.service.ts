@@ -1,6 +1,11 @@
 // src/modules/service/service.service.ts
 import prisma from "@/shared/database/prisma";
 import { CreateServiceDTO, UpdateServiceDTO } from "./service.dto";
+import { PrismaActiveAffiliationChecker } from "@/modules/profiles/affiliations/infrastructure/prisma/prisma-active-affiliation-checker";
+
+/// Alcance multi-tenant del catálogo: las tablas de catálogo no guardan `tenantId`, así que la
+/// pertenencia se deriva de la afiliación activa del perfil profesional en el tenant solicitado.
+const activeAffiliationChecker = new PrismaActiveAffiliationChecker();
 
 export class ServiceService {
   /// funcion para validar la especialidad del profesional
@@ -75,8 +80,24 @@ export class ServiceService {
     return profile.id;
   }
 
-  // listar servicios activos de un profesional
-  static async findByProfessional(profileId: number) {
+  /// Lista los servicios activos de un profesional dentro del tenant seleccionado.
+  ///
+  /// El catálogo no almacena `tenantId`: el alcance se deriva de la afiliación activa del
+  /// profesional. Un profesional sólo expone su catálogo en los tenants donde está afiliado y
+  /// activo, de modo que una ruta pública con el tenant equivocado no devuelve datos suyos.
+  ///
+  /// @returns La lista de servicios, o `null` si el profesional no pertenece al tenant, para que
+  ///          la ruta responda 404 uniforme sin revelar si el perfil existe.
+  static async findByProfessional(profileId: number, tenantId: number) {
+    const isAffiliated = await activeAffiliationChecker.hasActiveAffiliation(
+      profileId,
+      tenantId,
+    );
+
+    if (!isAffiliated) {
+      return null;
+    }
+
     return prisma.service.findMany({
       where: { profileId, isActive: true },
       orderBy: { createdAt: "asc" },

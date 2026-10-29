@@ -8,6 +8,7 @@
 import type { AffiliationRepository } from "./affiliation-repository";
 import type { AffiliationRevisionRepository } from "./affiliation-revision-repository";
 import type { AffiliationAuditRepository } from "./affiliation-audit-repository";
+import type { AuditHoldRepository } from "./affiliation-audit-hold-repository";
 import type { ActiveMembershipChecker } from "./active-membership-checker";
 import type { ActiveTenantChecker } from "./active-tenant-checker";
 
@@ -24,6 +25,8 @@ export interface AffiliationTransactionalRepositories {
   revisions: AffiliationRevisionRepository;
   /// Repositorio para el registro de eventos y trazabilidad de auditoría.
   audit: AffiliationAuditRepository;
+  /// Repositorio para las retenciones de auditoría (Audit Hold) y su liberación condicional.
+  auditHolds: AuditHoldRepository;
   /// Verificador de membresía activa coordinado dentro de la misma transacción.
   memberships: ActiveMembershipChecker;
   /// Verificador de estado activo del tenant dentro de la transacción.

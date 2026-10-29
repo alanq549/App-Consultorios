@@ -35,8 +35,21 @@ export class ScheduleController {
   ) {
     try {
       const profileId = Number(req.params.profileId);
-      const schedules = await ScheduleService.findByProfessional(profileId);
-      res.json(schedules);
+      const tenantId = res.locals.tenantId as number;
+
+      const schedules = await ScheduleService.findByProfessional(
+        profileId,
+        tenantId,
+      );
+
+      // El profesional no pertenece al tenant seleccionado: respuesta uniforme de no encontrado.
+      if (schedules === null) {
+        return res.status(404).json({
+          message: "Perfil profesional no encontrado",
+        });
+      }
+
+      return res.json(schedules);
     } catch (err) {
       next(err);
     }

@@ -18,6 +18,12 @@ import { ObsoleteRevisionError, UnauthorizedAffiliationActionError } from "@/mod
 
 const testSuffix = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
 
+/// Estas pruebas ejecutan esperas, sondeos y bloqueos reales contra PostgreSQL remoto y, con la
+/// carga de la suite completa, corren cerca del límite por defecto (5 s). Se amplía el tiempo
+/// límite sólo en este archivo para que la validación habitual de CI sea estable; el resto de la
+/// suite conserva el umbral por defecto.
+const SUITE_TIMEOUT_MS = 20_000;
+
 describe("Concurrency and Row-level Locking Integration (PostgreSQL)", () => {
   let tenant: { id: number; slug: string };
   let professionalUser: { id: number };
@@ -726,5 +732,5 @@ describe("Concurrency and Row-level Locking Integration (PostgreSQL)", () => {
 
     expect(result.revision.status).toBe("APPROVED");
   });
-});
+}, SUITE_TIMEOUT_MS);
 

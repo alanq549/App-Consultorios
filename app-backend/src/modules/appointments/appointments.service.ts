@@ -8,13 +8,31 @@ import {
 import { generateAvailabilitySlots } from "./availability.util";
 /* import { appointmentQueue } from "./appointment.worker"; */
 import { NotificationService } from "../notifications/notifications.service";
+import { PrismaActiveAffiliationChecker } from "@/modules/profiles/affiliations/infrastructure/prisma/prisma-active-affiliation-checker";
+
+/// Alcance multi-tenant de las citas: `Appointment` no guarda `tenantId`, así que la pertenencia
+/// del profesional al tenant solicitado se deriva de su afiliación activa. Las superficies de
+/// reserva y disponibilidad sólo operan en tenants donde el profesional está afiliado ACTIVE.
+const activeAffiliationChecker = new PrismaActiveAffiliationChecker();
 
 export class AppointmentService {
   // Crear cita con clientProfile
   static async create(
     clientProfileId: number,
     data: CreateAppointmentDTO,
-  ): Promise<AppointmentResponseDTO> {
+    tenantId: number,
+  ): Promise<AppointmentResponseDTO | null> {
+    // El profesional debe tener afiliación activa en el tenant seleccionado; si no, se trata
+    // como no encontrado para no revelar la existencia del perfil.
+    const isAffiliated = await activeAffiliationChecker.hasActiveAffiliation(
+      data.professionalProfileId,
+      tenantId,
+    );
+
+    if (!isAffiliated) {
+      return null;
+    }
+
     const service = await this.getServiceById(
       data.serviceId,
       data.professionalProfileId,
@@ -89,7 +107,17 @@ export class AppointmentService {
   static async createGuest(
     professionalProfileId: number,
     data: CreateGuestAppointmentDTO,
-  ): Promise<AppointmentResponseDTO> {
+    tenantId: number,
+  ): Promise<AppointmentResponseDTO | null> {
+    const isAffiliated = await activeAffiliationChecker.hasActiveAffiliation(
+      professionalProfileId,
+      tenantId,
+    );
+
+    if (!isAffiliated) {
+      return null;
+    }
+
     const service = await this.getServiceById(
       data.serviceId,
       professionalProfileId,
@@ -398,7 +426,17 @@ export class AppointmentService {
     serviceId: number,
     startOfDay: Date,
     endOfDay: Date,
+    tenantId: number,
   ) {
+    const isAffiliated = await activeAffiliationChecker.hasActiveAffiliation(
+      professionalProfileId,
+      tenantId,
+    );
+
+    if (!isAffiliated) {
+      return null;
+    }
+
     const now = new Date();
 
     if (endOfDay <= now) return [];

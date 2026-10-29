@@ -3,12 +3,15 @@ import { Router } from "express";
 import { ServiceController } from "./service.controller";
 import { authMiddleware } from "@/middlewares/auth.middleware";
 import { requireRole } from "@/middlewares/role.middleware";
+import { resolvePublicTenantMiddleware } from "@/modules/tenancy/http/resolve-public-tenant.middleware";
 
 const router = Router();
 
-// Público (cliente)
+// Público (cliente). Requiere X-Tenant-ID: el catálogo de un profesional sólo se expone en los
+// tenants donde mantiene una afiliación activa.
 router.get(
   "/professional/:profileId",
+  resolvePublicTenantMiddleware(),
   ServiceController.listByProfessional
 );
 

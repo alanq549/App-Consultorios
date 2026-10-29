@@ -25,8 +25,21 @@ export class SpecialtyController {
 
   static async listByProfessional(req: Request, res: Response) {
     const profileId = Number(req.params.profileId);
-    const specialties = await SpecialtyService.listByProfessional(profileId);
-    res.json(specialties);
+    const tenantId = res.locals.tenantId as number;
+
+    const specialties = await SpecialtyService.listByProfessional(
+      profileId,
+      tenantId,
+    );
+
+    // El profesional no pertenece al tenant seleccionado: respuesta uniforme de no encontrado.
+    if (specialties === null) {
+      return res.status(404).json({
+        message: "Perfil profesional no encontrado",
+      });
+    }
+
+    return res.json(specialties);
   }
 
   static async update(req: Request, res: Response) {

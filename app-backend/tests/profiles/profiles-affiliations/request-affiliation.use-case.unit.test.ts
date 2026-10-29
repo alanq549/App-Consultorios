@@ -103,6 +103,7 @@ describe("RequestAffiliationUseCase", () => {
         createdAt: new Date(),
       }),
       findByAffiliation: vi.fn().mockResolvedValue([]),
+      findById: vi.fn().mockResolvedValue(null),
     };
 
     mockUnitOfWork = {

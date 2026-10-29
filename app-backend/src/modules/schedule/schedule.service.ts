@@ -1,8 +1,14 @@
 // src/modules/schedule/schedule.service.ts
 import prisma from "@/shared/database/prisma";
 import { CreateScheduleDTO, UpdateScheduleDTO } from "./schedule.dto";
+import { PrismaActiveAffiliationChecker } from "@/modules/profiles/affiliations/infrastructure/prisma/prisma-active-affiliation-checker";
 
 const SLOT_MINUTES = 15;
+
+/// Alcance multi-tenant de la agenda: `Schedule` no guarda `tenantId`, así que la pertenencia del
+/// profesional al tenant solicitado se deriva de su afiliación activa. La agenda es del perfil y
+/// su lectura pública sólo se expone en los tenants donde mantiene una afiliación ACTIVE.
+const activeAffiliationChecker = new PrismaActiveAffiliationChecker();
 
 export class ScheduleService {
 
@@ -127,7 +133,22 @@ export class ScheduleService {
     });
   }
 
-  static async findByProfessional(profileId: number) {
+  /// Lista la agenda de un profesional dentro del tenant seleccionado.
+  ///
+  /// La agenda sólo se expone en tenants donde el profesional mantiene una afiliación activa; en
+  /// caso contrario se trata como no encontrada para no revelar la existencia del perfil.
+  ///
+  /// @returns La lista de bloques horarios activos, o `null` si no pertenece al tenant.
+  static async findByProfessional(profileId: number, tenantId: number) {
+    const isAffiliated = await activeAffiliationChecker.hasActiveAffiliation(
+      profileId,
+      tenantId,
+    );
+
+    if (!isAffiliated) {
+      return null;
+    }
+
     return prisma.schedule.findMany({
       where: { profileId, isActive: true },
       orderBy: { dayOfWeek: "asc" },

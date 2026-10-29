@@ -2,6 +2,14 @@ import prisma from "@/shared/database/prisma";
 import { CreateReviewInput } from "./reviews.dto";
 import { Prisma } from "@prisma/client";
 import { NotificationService } from "../notifications/notifications.service";
+import { AppError } from "@/shared/errors/AppError";
+import { PrismaActiveAffiliationChecker } from "@/modules/profiles/affiliations/infrastructure/prisma/prisma-active-affiliation-checker";
+
+/// Alcance multi-tenant de las reseñas: `Review` no guarda `tenantId`, así que la pertenencia del
+/// profesional al tenant solicitado se deriva de su afiliación activa. Las superficies por
+/// propiedad (crear, leer por cita y leer por lote) se acotan a la participación del usuario
+/// autenticado en la cita y no asumen ningún tenant por defecto.
+const activeAffiliationChecker = new PrismaActiveAffiliationChecker();
 
 
 export class ReviewsService {
@@ -9,24 +17,30 @@ export class ReviewsService {
   static async create(userId: number, data: CreateReviewInput) {
   const appointment = await prisma.appointment.findUnique({
     where: { id: data.appointmentId },
-    include: { review: true },
+    include: {
+      review: true,
+      // Se necesita el `userId` del profesional (no el id de su perfil) para notificarle.
+      professional: { select: { userId: true } },
+    },
   });
 
-  if (!appointment) throw new Error("Appointment not found");
+  if (!appointment) throw new AppError("Cita no encontrada", 404);
 
   const clientProfile = await prisma.clientProfile.findUnique({
     where: { userId },
   });
 
-  if (!clientProfile) throw new Error("Client profile not found");
+  if (!clientProfile) throw new AppError("Perfil de cliente no encontrado", 404);
 
+  // Sólo el cliente dueño de la cita puede reseñarla. La denegación es uniforme (404) para no
+  // revelar la existencia de citas ajenas.
   if (appointment.clientProfileId !== clientProfile.id)
-    throw new Error("Unauthorized");
+    throw new AppError("Cita no encontrada", 404);
 
   if (appointment.status !== "COMPLETED")
-    throw new Error("Appointment not completed");
+    throw new AppError("La cita no está completada", 400);
 
-  if (appointment.review) throw new Error("Review already exists");
+  if (appointment.review) throw new AppError("La reseña ya existe", 409);
 
   const review = await prisma.$transaction(async (tx) => {
     const review = await tx.review.create({
@@ -46,16 +60,33 @@ export class ReviewsService {
     return review;
   });
 
-  // enviar notificación
-  await NotificationService.notifyReview(
-    appointment.professionalProfileId,
-    appointment.id
-  );
+  // La notificación es best-effort: la reseña y el rating ya quedaron confirmados en la
+  // transacción y no deben revertirse (ni devolver error al cliente) si falla el aviso.
+  try {
+    await NotificationService.notifyReview(
+      appointment.professional.userId,
+      appointment.id,
+    );
+  } catch (error) {
+    console.error("No se pudo notificar la nueva reseña al profesional", error);
+  }
 
   return review;
 }
 
-     static async getProfessionalReviews(professionalProfileId: number) {
+     /// Lectura pública del listado de reseñas de un profesional. Devuelve `null` cuando el
+     /// profesional no tiene afiliación activa en el tenant solicitado, de modo que el controlador
+     /// responda el mismo 404 uniforme que el resto del catálogo público.
+     static async getProfessionalReviews(professionalProfileId: number, tenantId: number) {
+        const isAffiliated = await activeAffiliationChecker.hasActiveAffiliation(
+          professionalProfileId,
+          tenantId,
+        );
+
+        if (!isAffiliated) {
+          return null;
+        }
+
         return prisma.review.findMany({
         where: {
             appointment: {
@@ -65,7 +96,12 @@ export class ReviewsService {
         include: {
             appointment: {
             include: {
-                clientProfile: true,
+                // Proyección pública: sólo los datos de presentación del cliente. Se excluyen
+                // contacto (phone) e identificadores internos (userId), que el middleware de tenant
+                // no limita.
+                clientProfile: {
+                select: { name: true, lastName: true, avatar: true },
+                },
             },
             },
         },
@@ -75,21 +111,53 @@ export class ReviewsService {
         });
     }
 
-    static async getByAppointment(appointmentId: number) {
+    /// Lectura por propiedad: sólo el cliente dueño de la cita o su profesional pueden leer la
+    /// reseña. Cualquier otro usuario obtiene `null` (404 uniforme en el controlador).
+    static async getByAppointment(appointmentId: number, userId: number) {
+        const isParticipant = await this.isAppointmentParticipant(
+          appointmentId,
+          userId,
+        );
+
+        if (!isParticipant) {
+          return null;
+        }
+
         return prisma.review.findUnique({
         where: { appointmentId },
         });
     }
 
-    static async getByAppointments(appointmentIds: number[]) {
+    /// Lectura por propiedad en lote: se descartan los IDs de citas en las que el usuario no
+    /// participa, de modo que nunca se filtran reseñas ajenas aunque el cliente los solicite.
+    static async getByAppointments(appointmentIds: number[], userId: number) {
   return prisma.review.findMany({
     where: {
       appointmentId: {
         in: appointmentIds,
       },
+      appointment: {
+        OR: [{ clientProfile: { userId } }, { professional: { userId } }],
+      },
     },
   });
 }
+
+  /// Determina si el usuario participa en la cita (como cliente dueño o como profesional).
+  private static async isAppointmentParticipant(
+    appointmentId: number,
+    userId: number,
+  ): Promise<boolean> {
+    const appointment = await prisma.appointment.findFirst({
+      where: {
+        id: appointmentId,
+        OR: [{ clientProfile: { userId } }, { professional: { userId } }],
+      },
+      select: { id: true },
+    });
+
+    return appointment !== null;
+  }
 
   static async updateProfessionalRating(
     tx: Prisma.TransactionClient,

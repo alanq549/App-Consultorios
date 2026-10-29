@@ -3,12 +3,19 @@ import { Router } from "express";
 import { SpecialtyController } from "./specialty.controller";
 import { authMiddleware } from "@/middlewares/auth.middleware";
 import { requireRole } from "@/middlewares/role.middleware";
+import { resolvePublicTenantMiddleware } from "@/modules/tenancy/http/resolve-public-tenant.middleware";
 
 const router = Router();
 
 router.get("/", SpecialtyController.list);
 
-router.get("/professional/:profileId", SpecialtyController.listByProfessional);
+// Proyección pública de un profesional: requiere X-Tenant-ID y sólo responde si el profesional
+// mantiene una afiliación activa en ese tenant.
+router.get(
+  "/professional/:profileId",
+  resolvePublicTenantMiddleware(),
+  SpecialtyController.listByProfessional,
+);
 
 router.get(
   "/soft-deleted",
