@@ -41,6 +41,8 @@ const emails = {
   withdrawnAffiliation: `directory-withdrawn-affiliation-${suffix}@test.invalid`,
   noApprovedRevision: `directory-no-approved-revision-${suffix}@test.invalid`,
   authenticated: `directory-authenticated-${suffix}@test.invalid`,
+  globalPending: `directory-global-pending-${suffix}@test.invalid`,
+  noSpecialty: `directory-no-specialty-${suffix}@test.invalid`,
 };
 
 let tenantA: { id: number; slug: string };
@@ -62,6 +64,8 @@ const revisionIds: number[] = [];
 async function createProfessional(options: {
   email: string;
   tenantId: number;
+  verificationStatus?: "PENDING" | "APPROVED" | "SUSPENDED" | "REJECTED";
+  skipSpecialty?: boolean;
   membershipStatus?: "ACTIVE" | "SUSPENDED";
   affiliationStatus?:
   | "PENDING_REVIEW"
@@ -91,7 +95,7 @@ async function createProfessional(options: {
 
   userIds.push(user.id);
 
-  // 2. Crear el perfil profesional global.
+  // 2. Crear el perfil profesional global (Fase 4 D2: APPROVED por defecto para visibilidad).
   const profile = await prisma.professionalProfile.create({
     data: {
       userId: user.id,
@@ -99,12 +103,36 @@ async function createProfessional(options: {
       lastName: "Prueba",
       phone: "5551234567",
       description: "Descripción global que no debe publicarse",
-      verificationStatus: "PENDING",
+      verificationStatus: options.verificationStatus ?? "APPROVED",
     },
     select: { id: true },
   });
 
   profileIds.push(profile.id);
+
+  // Vincular especialidad aprobada requerida para el gate público (Fase 4 D2)
+  if (!options.skipSpecialty) {
+    const specialty = await prisma.specialty.upsert({
+      where: { id: 1 },
+      update: {},
+      create: { name: "Medicina General", description: "General" },
+    });
+
+    await prisma.professionalSpecialty.upsert({
+      where: {
+        professionalId_specialtyId: {
+          professionalId: profile.id,
+          specialtyId: specialty.id,
+        },
+      },
+      update: { status: "APPROVED" },
+      create: {
+        professionalId: profile.id,
+        specialtyId: specialty.id,
+        status: "APPROVED",
+      },
+    });
+  }
 
   // 3. Vincular la membresía con el tenant.
   await prisma.tenantMembership.create({
@@ -152,6 +180,8 @@ async function createProfessional(options: {
 describe("Directorio público multi-tenant", () => {
   let visibleProfileId: number;
   let pendingProfileId: number;
+  let globalPendingProfileId: number;
+  let noSpecialtyProfileId: number;
 
   /// Seeding inicial: crea los tenants y diferentes escenarios de profesionales
   /// (aprobado, pendiente de revisión, membresía suspendida y versión editada).
@@ -331,6 +361,37 @@ describe("Directorio público multi-tenant", () => {
         },
       ],
     });
+
+    // Profesional 10 (Fase 4 D2): Perfil con estado de verificación global PENDING (no aprobado globalmente).
+    const globalPending = await createProfessional({
+      email: emails.globalPending,
+      tenantId: tenantA.id,
+      verificationStatus: "PENDING",
+      revisions: [
+        {
+          revisionNumber: 1,
+          status: "APPROVED",
+          description: "Descripción no publicable por verificationStatus PENDING",
+        },
+      ],
+    });
+    globalPendingProfileId = globalPending.profileId;
+
+    // Profesional 11 (Fase 4 D2): Perfil global aprobado pero sin especialidad aprobada (skipSpecialty: true).
+    const noSpecialty = await createProfessional({
+      email: emails.noSpecialty,
+      tenantId: tenantA.id,
+      verificationStatus: "APPROVED",
+      skipSpecialty: true,
+      revisions: [
+        {
+          revisionNumber: 1,
+          status: "APPROVED",
+          description: "Descripción no publicable por falta de especialidad aprobada",
+        },
+      ],
+    });
+    noSpecialtyProfileId = noSpecialty.profileId;
   }, 30000);
 
   /// Limpieza minuciosa en orden inverso estricto de dependencias FK (onDelete: Restrict)
@@ -362,6 +423,10 @@ describe("Directorio público multi-tenant", () => {
     }
 
     if (profileIds.length > 0) {
+      await prisma.professionalSpecialty.deleteMany({
+        where: { professionalId: { in: profileIds } },
+      });
+
       await prisma.professionalProfile.deleteMany({
         where: { id: { in: profileIds } },
       });
@@ -500,11 +565,31 @@ it("mantiene la misma proyección del listado con y sin autenticación", async (
     expect(response.status).toBe(200);
     expect(response.body).not.toHaveProperty("email");
     expect(response.body).not.toHaveProperty("phone");
+    expect(response.body).not.toHaveProperty("verificationStatus");
     expect(response.body).toMatchObject({
       certificates: [],
       specialties: [],
       description: "Descripción pública aprobada",
     });
+  });
+
+  it("no expone verificationStatus en ningún resultado de Allprofiles ni de perfil individual (Fase 4 D2)", async () => {
+    const listResponse = await request(app)
+      .get("/api/professionals/Allprofiles")
+      .set("X-Tenant-ID", String(tenantA.id));
+
+    expect(listResponse.status).toBe(200);
+    expect(listResponse.body.length).toBeGreaterThan(0);
+    for (const item of listResponse.body) {
+      expect(item).not.toHaveProperty("verificationStatus");
+    }
+
+    const detailResponse = await request(app)
+      .get(`/api/professionals/${visibleProfileId}`)
+      .set("X-Tenant-ID", String(tenantA.id));
+
+    expect(detailResponse.status).toBe(200);
+    expect(detailResponse.body).not.toHaveProperty("verificationStatus");
   });
 
   it("rechaza la petición si falta X-Tenant-ID", async () => {
@@ -636,5 +721,50 @@ it("mantiene la misma proyección del listado con y sin autenticación", async (
     expect(descriptions).not.toContain("Descripción afiliación rechazada");
     expect(descriptions).not.toContain("Descripción afiliación retirada");
     expect(descriptions).not.toContain("Descripción sin revisión aprobada");
+  });
+
+  // Exclusiones D2 (Fase 4): Estado global y especialidades
+  it("excluye de Allprofiles perfiles con verificationStatus no aprobado o sin especialidad aprobada (Fase 4 D2)", async () => {
+    const response = await request(app)
+      .get("/api/professionals/Allprofiles")
+      .set("X-Tenant-ID", String(tenantA.id));
+
+    expect(response.status).toBe(200);
+
+    const ids = response.body.map((profile: { id: number }) => profile.id);
+    expect(ids).not.toContain(globalPendingProfileId);
+    expect(ids).not.toContain(noSpecialtyProfileId);
+
+    const descriptions = response.body.map(
+      (profile: { description: string }) => profile.description,
+    );
+    expect(descriptions).not.toContain(
+      "Descripción no publicable por verificationStatus PENDING"
+    );
+    expect(descriptions).not.toContain(
+      "Descripción no publicable por falta de especialidad aprobada"
+    );
+  });
+
+  it("devuelve 404 al consultar un perfil individual con verificationStatus global PENDING (Fase 4 D2)", async () => {
+    const response = await request(app)
+      .get(`/api/professionals/${globalPendingProfileId}`)
+      .set("X-Tenant-ID", String(tenantA.id));
+
+    expect(response.status).toBe(404);
+    expect(response.body).toEqual({
+      message: "Perfil profesional no encontrado",
+    });
+  });
+
+  it("devuelve 404 al consultar un perfil individual sin especialidad aprobada (Fase 4 D2)", async () => {
+    const response = await request(app)
+      .get(`/api/professionals/${noSpecialtyProfileId}`)
+      .set("X-Tenant-ID", String(tenantA.id));
+
+    expect(response.status).toBe(404);
+    expect(response.body).toEqual({
+      message: "Perfil profesional no encontrado",
+    });
   });
 });

@@ -105,11 +105,9 @@ export function ProfessionalList({ onSelect, selectedId }: Props) {
                       <CheckCircle2 size={18} />
                     </div>
                   ) : (
-                    p.verificationStatus === "APPROVED" && (
-                      <div className="bg-slate-100 dark:bg-neutral-800 text-blue-500 p-1.5 rounded-full border">
-                        <Award size={16} />
-                      </div>
-                    )
+                    <div className="bg-slate-100 dark:bg-neutral-800 text-blue-500 p-1.5 rounded-full border">
+                      <Award size={16} />
+                    </div>
                   )}
                 </div>
 

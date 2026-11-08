@@ -288,6 +288,8 @@ Observaciones:
 
 | GET | `/api/professionals/:id` | users/professionalprofile | `ProfessionalProfileController.getPublic` | `ProfessionalProfileService.getPublicById` | PÃºblico | â€” | No aplica | `ProfessionalProfile` | ACTIVE | Confirmado |
 
+**Cambio intencional pendiente de Fase 4 D2:** los DTOs de ambas lecturas públicas dejarán de incluir `verificationStatus` y los listados filtrarán perfiles globalmente `APPROVED`. El estado seguirá disponible en `/api/users/me` y APIs privadas autorizadas. Ver [FASE4_PROFILES/04-PERFIL-PROFESIONAL.md](FASE4_PROFILES/04-PERFIL-PROFESIONAL.md) para migración de consumidores frontend y pruebas.
+
 | POST | `/api/professionals/social-links` | users/professionalprofile | `ProfessionalProfileController.createSocialLink` | `ProfessionalProfileService.createSocialLink` | Bearer | Todos autenticados en router | Ownership manual probable | `SocialLink`, `ProfessionalProfile` | ACTIVE | Pendiente de revisar |
 
 | PATCH | `/api/professionals/social-links/:id` | users/professionalprofile | `ProfessionalProfileController.updateSocialLink` | `ProfessionalProfileService.updateSocialLink` | Bearer | Todos autenticados en router | Ownership manual probable | `SocialLink`, `ProfessionalProfile` | ACTIVE | Pendiente de revisar |

@@ -1,7 +1,7 @@
 
 import { useAdminProfiles } from "@/hooks/admin/useAdminProfiles";
 import { ProfessionalAdminCard } from "./ProfessionalAdminCard";
-import type { Professional } from "@/types/professional.type";
+import type { AdminProfessional } from "@/types/professional.type";
 import { SearchX, AlertCircle, Users2, RefreshCcw, Globe } from "lucide-react";
 import { ProfessionalSpecialtiesPanel } from "./SpecialtyRequestsManager";
 
@@ -94,7 +94,7 @@ export function AllProfessionals() {
 
       {/* GRID DINÁMICO: Efecto Stagger */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start pb-10">
-        {data.map((profile: Professional, index: number) => (
+        {data.map((profile: AdminProfessional, index: number) => (
           <div 
             key={profile.id}
             className="animate-in fade-in slide-in-from-bottom-4 duration-500 fill-mode-both"

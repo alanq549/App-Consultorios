@@ -1,5 +1,7 @@
 // src/modules/users/professionalprofile/professionalprofile.service.ts
 import prisma from "@/shared/database/prisma";
+import path from "node:path";
+import fs from "node:fs";
 import { PublicProfessionalProfile } from "./professionalprofile.type";
 import { ProfessionalStatus, SpecialtyStatus } from "@prisma/client";
 import {
@@ -9,6 +11,24 @@ import {
   UpdateSocialLinkDTO,
 } from "./professionalprofile.dto";
 import { NotificationService } from "@/modules/notifications/notifications.service";
+import { PrismaProfessionalProfileRepository } from "@/modules/profiles/infrastructure/prisma/prisma-professional-profile-repository";
+import { GetPublicProfessionalProfileUseCase } from "@/modules/profiles/application/use-cases/get-public-professional-profile.use-case";
+import { ListPublicProfessionalProfilesUseCase } from "@/modules/profiles/application/use-cases/list-public-professional-profiles.use-case";
+import { UpdateProfessionalProfileUseCase } from "@/modules/profiles/application/use-cases/update-professional-profile.use-case";
+import {
+  ProfessionalProfileNotFoundError,
+  CertificateNotFoundError,
+  SocialLinkNotFoundError,
+  UnauthorizedProfileAccessError,
+} from "@/modules/profiles/domain/profile-errors";
+
+const professionalProfileRepo = new PrismaProfessionalProfileRepository();
+const getPublicProfessionalProfileUseCase =
+  new GetPublicProfessionalProfileUseCase(professionalProfileRepo);
+const listPublicProfessionalProfilesUseCase =
+  new ListPublicProfessionalProfilesUseCase(professionalProfileRepo);
+const updateProfessionalProfileUseCase =
+  new UpdateProfessionalProfileUseCase(professionalProfileRepo);
 
 export class ProfessionalProfileService {
   static async findByUserId(userId: number) {
@@ -86,171 +106,23 @@ export class ProfessionalProfileService {
   }
 
   static async getPublicById(
-  profileId: number,
-  tenantId: number,
-): Promise<PublicProfessionalProfile | null> {
-  const affiliation = await prisma.professionalTenantAffiliation.findFirst({
-    where: {
-      professionalProfileId: profileId,
-      tenantId,
-      status: "ACTIVE",
-      tenant: {
-        is: { status: "ACTIVE" },
-      },
-      professionalProfile: {
-        is: {
-          user: {
-            is: {
-              tenantMemberships: {
-                some: {
-                  tenantId,
-                  status: "ACTIVE",
-                },
-              },
-            },
-          },
-        },
-      },
-      revisions: {
-        some: { status: "APPROVED" },
-      },
-    },
-    select: {
-      professionalProfile: {
-        select: {
-          id: true,
-          name: true,
-          lastName: true,
-          avatar: true,
-          ratingAvg: true,
-          ratingCount: true,
-          verificationStatus: true,
-        },
-      },
-      revisions: {
-        where: { status: "APPROVED" },
-        orderBy: { revisionNumber: "desc" },
-        take: 1,
-        select: {
-          description: true,
-          socialLinks: {
-            select: {
-              type: true,
-              url: true,
-            },
-          },
-        },
-      },
-    },
-  });
-
-  if (!affiliation || affiliation.revisions.length === 0) {
-    return null;
+    profileId: number,
+    tenantId: number,
+  ): Promise<PublicProfessionalProfile | null> {
+    return getPublicProfessionalProfileUseCase.execute(
+      profileId,
+      tenantId
+    ) as Promise<PublicProfessionalProfile | null>;
   }
 
-  const profile = affiliation.professionalProfile;
-  const revision = affiliation.revisions[0];
-
-  return {
-    id: profile.id,
-    name: profile.name,
-    lastName: profile.lastName,
-    avatar: profile.avatar,
-    description: revision.description,
-    verificationStatus: profile.verificationStatus,
-    ratingAvg: 0,
-    ratingCount: 0,
-    socialLinks: revision.socialLinks.map((link) => ({
-      type: link.type,
-      url: link.url,
-    })),
-    certificates: [],
-    specialties: [],
-  };
-}
-
-  // ✅ NUEVO: listar todos los perfiles aprobados con su información pública
- static async getAllPublic(
-  tenantId: number,
-): Promise<PublicProfessionalProfile[]> {
-  const affiliations = await prisma.professionalTenantAffiliation.findMany({
-    where: {
-      tenantId,
-      status: "ACTIVE",
-      tenant: {
-        is: { status: "ACTIVE" },
-      },
-      professionalProfile: {
-        is: {
-          user: {
-            is: {
-              tenantMemberships: {
-                some: {
-                  tenantId,
-                  status: "ACTIVE",
-                },
-              },
-            },
-          },
-        },
-      },
-      revisions: {
-        some: { status: "APPROVED" },
-      },
-    },
-    select: {
-      professionalProfile: {
-        select: {
-          id: true,
-          name: true,
-          lastName: true,
-          avatar: true,
-          ratingAvg: true,
-          ratingCount: true,
-          verificationStatus: true,
-        },
-      },
-      revisions: {
-        where: { status: "APPROVED" },
-        orderBy: { revisionNumber: "desc" },
-        take: 1,
-        select: {
-          description: true,
-          socialLinks: {
-            select: {
-              type: true,
-              url: true,
-            },
-          },
-        },
-      },
-    },
-  });
-
-  return affiliations
-    .filter((affiliation) => affiliation.revisions.length > 0)
-    .map((affiliation) => {
-      const profile = affiliation.professionalProfile;
-      const revision = affiliation.revisions[0];
-
-      return {
-        id: profile.id,
-        name: profile.name,
-        lastName: profile.lastName,
-        avatar: profile.avatar,
-        description: revision.description,
-        verificationStatus: profile.verificationStatus,
-        ratingAvg: 0,
-        ratingCount: 0,
-        socialLinks: revision.socialLinks.map((link) => ({
-          type: link.type,
-          url: link.url,
-        })),
-        certificates: [],
-        specialties: [],
-      };
-    });
-}
+  // Listar todos los perfiles aprobados con su información pública
+  static async getAllPublic(
+    tenantId: number,
+  ): Promise<PublicProfessionalProfile[]> {
+    return listPublicProfessionalProfilesUseCase.execute(
+      tenantId
+    ) as Promise<PublicProfessionalProfile[]>;
+  }
  // listar a todos los perfiles (solo para admin)
   static async getAllProfiles() {
   return prisma.professionalProfile.findMany({
@@ -346,24 +218,11 @@ static async setProfileStatus(
     userId: number,
     data: UpdateProfessionalProfileDTO,
   ) {
-    const hasValidField = Object.values(data).some((v) => v !== undefined);
-
-    if (!hasValidField) {
-      throw new Error("No hay campos para actualizar");
-    }
-
-    const profile = await prisma.professionalProfile.update({
-      where: { userId },
-      data,
+    return updateProfessionalProfileUseCase.execute(userId, {
+      name: data.name,
+      lastName: data.lastName,
+      phone: data.phone,
     });
-
-    return {
-      id: profile.id,
-      name: profile.name,
-      lastName: profile.lastName,
-      phone: profile.phone,
-      description: profile.description,
-    };
   }
 
   //crear socialLInks
@@ -372,7 +231,9 @@ static async setProfileStatus(
       where: { userId },
     });
 
-    if (!profile) throw new Error("Profile no existe");
+    if (!profile) {
+      throw new ProfessionalProfileNotFoundError("Profile no existe");
+    }
 
     return prisma.socialLink.create({
       data: {
@@ -392,14 +253,22 @@ static async setProfileStatus(
       where: { userId },
     });
 
-    if (!profile) throw new Error("Profile no existe");
+    if (!profile) {
+      throw new ProfessionalProfileNotFoundError("Profile no existe");
+    }
 
     const link = await prisma.socialLink.findUnique({
       where: { id: socialLinkId },
     });
 
-    if (!link || link.profileId !== profile.id) {
-      throw new Error("No autorizado");
+    if (!link) {
+      throw new SocialLinkNotFoundError("Social link no existe");
+    }
+
+    if (link.profileId !== profile.id) {
+      throw new UnauthorizedProfileAccessError(
+        "No autorizado para modificar este enlace"
+      );
     }
 
     return prisma.socialLink.update({
@@ -414,14 +283,22 @@ static async setProfileStatus(
       where: { userId },
     });
 
-    if (!profile) throw new Error("Profile no existe");
+    if (!profile) {
+      throw new ProfessionalProfileNotFoundError("Profile no existe");
+    }
 
     const link = await prisma.socialLink.findUnique({
       where: { id: socialLinkId },
     });
 
-    if (!link || link.profileId !== profile.id) {
-      throw new Error("No autorizado");
+    if (!link) {
+      throw new SocialLinkNotFoundError("Social link no existe");
+    }
+
+    if (link.profileId !== profile.id) {
+      throw new UnauthorizedProfileAccessError(
+        "No autorizado para eliminar este enlace"
+      );
     }
 
     await prisma.socialLink.delete({
@@ -440,13 +317,12 @@ static async setProfileStatus(
     });
 
     if (!profile) {
-      throw new Error("Profile not found");
+      throw new ProfessionalProfileNotFoundError("Profile not found");
     }
 
     return prisma.certificate.create({
       data: {
         ...data,
-
         profileId: profile.id,
       },
     });
@@ -458,19 +334,53 @@ static async setProfileStatus(
       where: { userId },
     });
 
-    if (!profile) throw new Error("Profile no existe");
+    if (!profile) {
+      throw new ProfessionalProfileNotFoundError("Profile no existe");
+    }
 
     const certificate = await prisma.certificate.findUnique({
       where: { id: certificateId },
     });
 
-    if (!certificate || certificate.profileId !== profile.id) {
-      throw new Error("No autorizado");
+    if (!certificate) {
+      throw new CertificateNotFoundError("Certificado no encontrado");
+    }
+
+    if (certificate.profileId !== profile.id) {
+      throw new UnauthorizedProfileAccessError(
+        "No autorizado para eliminar este certificado"
+      );
     }
 
     await prisma.certificate.delete({
       where: { id: certificateId },
     });
+
+    // Limpieza física del archivo en disco con reporte observable
+    if (certificate.fileUrl) {
+      const fileName = path.basename(certificate.fileUrl);
+      const filePath = path.join(
+        process.cwd(),
+        "public",
+        "certificates",
+        fileName
+      );
+      if (fs.existsSync(filePath)) {
+        try {
+          await fs.promises.unlink(filePath);
+        } catch (unlinkErr) {
+          console.error(
+            "Fallo observable al eliminar físicamente archivo de certificado en disco:",
+            {
+              certificateId,
+              fileUrl: certificate.fileUrl,
+              filePath,
+              error: unlinkErr,
+            }
+          );
+        }
+      }
+    }
 
     return { message: "Certificado eliminado" };
   }

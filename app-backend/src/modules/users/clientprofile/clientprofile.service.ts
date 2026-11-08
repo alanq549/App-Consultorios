@@ -1,47 +1,25 @@
 // src/modules/users/clientprofile/clientprofile.service.ts
-import prisma from "@/shared/database/prisma";
-import { ClientProfileMapper } from "./clientprofile.mapper";
+import { PrismaClientProfileRepository } from "@/modules/profiles/infrastructure/prisma/prisma-client-profile-repository";
+import { GetClientProfileUseCase } from "@/modules/profiles/application/use-cases/get-client-profile.use-case";
+import { UpdateClientProfileUseCase } from "@/modules/profiles/application/use-cases/update-client-profile.use-case";
 import { UpdateClientProfileDTO } from "./clientprofile.dto";
 
-export class ClientProfileService {
+const clientProfileRepo = new PrismaClientProfileRepository();
+const getClientProfileUseCase = new GetClientProfileUseCase(clientProfileRepo);
+const updateClientProfileUseCase = new UpdateClientProfileUseCase(clientProfileRepo);
 
-   static async findByUserId(userId: number) {
-    return prisma.clientProfile.findUnique({
-      where: { userId },
-    });
+export class ClientProfileService {
+  static async findByUserId(userId: number) {
+    return clientProfileRepo.findByUserId(userId);
   }
 
   // obtener el perfil del cliente
   static async me(userId: number) {
-    const profile = await prisma.clientProfile.findUnique({
-      where: { userId },
-      include: {
-        _count: { select: { appointments: true } },
-      },
-    });
-
-    if (!profile) throw new Error("Perfil de cliente no existe");
-
-    return ClientProfileMapper.toResponse(profile);
+    return getClientProfileUseCase.execute(userId);
   }
 
-  // actualizar el perfil del cliente 
+  // actualizar el perfil del cliente
   static async updateProfile(userId: number, data: UpdateClientProfileDTO) {
-    const hasValidField = Object.values(data).some((v) => v !== undefined);
-    if (!hasValidField) {
-      throw new Error("No hay campos para actualizar");
-    }
-
-    const profile = await prisma.clientProfile.update({
-      where: { userId },
-      data,
-      include: {
-        _count: {
-          select: { appointments: true },
-        },
-      },
-    });
-
-    return ClientProfileMapper.toResponse(profile);
+    return updateClientProfileUseCase.execute(userId, data);
   }
 }

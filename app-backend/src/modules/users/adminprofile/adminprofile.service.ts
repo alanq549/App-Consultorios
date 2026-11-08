@@ -1,28 +1,26 @@
 // src/modules/users/adminprofile/adminprofile.service.ts
-import prisma from "@/shared/database/prisma";
+import { PrismaAdminProfileRepository } from "@/modules/profiles/infrastructure/prisma/prisma-admin-profile-repository";
+import { AdminProfileNotFoundError } from "@/modules/profiles/domain/profile-errors";
+
+const adminRepo = new PrismaAdminProfileRepository();
 
 export class AdminProfileService {
-
   static async findByUserId(userId: number) {
-    return prisma.adminProfile.findUnique({
-      where: { userId },
-    });
+    return adminRepo.findByUserId(userId);
   }
 
   static async me(userId: number) {
-    const profile = await prisma.adminProfile.findUnique({
-      where: { userId },
-    });
-
-    if (!profile) throw new Error("Perfil admin no existe");
-
+    const profile = await adminRepo.findByUserId(userId);
+    if (!profile) {
+      throw new AdminProfileNotFoundError("Perfil admin no existe");
+    }
     return profile;
   }
 
   static async updateProfile(userId: number, data: { avatar?: string }) {
-    return prisma.adminProfile.update({
-      where: { userId },
-      data,
-    });
+    if (data.avatar) {
+      await adminRepo.updateAvatar(userId, data.avatar);
+    }
+    return adminRepo.findByUserId(userId);
   }
 }

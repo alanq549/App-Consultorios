@@ -24,8 +24,6 @@ export interface MeResponse<TProfile = unknown> {
   config: ConfigResponse;
 }
 
-
-
 export type UpdateProfileInput =
   | UpdateClientProfileDTO
   | UpdateProfessionalProfileDTO

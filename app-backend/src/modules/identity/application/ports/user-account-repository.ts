@@ -9,4 +9,3 @@ export interface UserAccountRepository {
   /// Busca y retorna una cuenta por su ID, o null si no existe.
   findById(id: number): Promise<UserAccount | null>;
 }
-

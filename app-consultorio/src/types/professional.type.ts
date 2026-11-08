@@ -27,13 +27,13 @@ export type Specialty = {
   status?: "PENDING" | "APPROVED" | "REJECTED";
 };
 
-export type Professional = {
+/// Perfil público consumido en el directorio público y booking (/api/professionals/:id y /Allprofiles)
+/// ATENCIÓN (Fase 4 D2): El backend NUNCA serializa verificationStatus ni teléfono en la respuesta pública.
+export type PublicProfessional = {
   id: number;
   name: string;
-  lastName: string;
+  lastName: string | null;
   avatar?: string;
-  phone?: string;
-  verificationStatus: ProfessionalStatus;
   description?: string;
   ratingAvg?: number;
   ratingCount?: number;
@@ -42,9 +42,34 @@ export type Professional = {
   certificates?: Certificate[];
 };
 
+/// Alias de perfil para consumidores públicos del directorio
+export type Professional = PublicProfessional;
+
+/// Relación de especialidad devuelta por los endpoints administrativos de Prisma (include: { specialty: true })
+export type AdminProfessionalSpecialty = {
+  id?: number;
+  professionalId?: number;
+  specialtyId?: number;
+  status?: "PENDING" | "APPROVED" | "REJECTED";
+  requestedAt?: string;
+  reviewedAt?: string | null;
+  specialty: {
+    id: number;
+    name: string;
+    description?: string | null;
+  };
+};
+
+/// Perfil administrativo consumido exclusivamente en el panel de administración (/api/admin/...)
+export type AdminProfessional = Omit<PublicProfessional, "specialties"> & {
+  phone?: string | null;
+  verificationStatus: ProfessionalStatus;
+  specialties?: AdminProfessionalSpecialty[];
+};
+
 /// type para mostrar en el booking, con menos info que el professional completo
 export type BookingProfessional = Pick<
-  Professional,
+  PublicProfessional,
   "id" | "name" | "lastName" | "avatar" | "ratingAvg" | "ratingCount"
 > & {
   specialty?: {

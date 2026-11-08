@@ -1,13 +1,26 @@
 
 
-import { useProfessionals } from "@/hooks/appointments/useProfessionals";
-import type { Professional } from "@/types/professional.type";
+import { useAdminProfiles } from "@/hooks/admin/useAdminProfiles";
+import type { AdminProfessional } from "@/types/professional.type";
 import { ProfessionalAdminCard } from "./ProfessionalAdminCard";
 import { ProfessionalSpecialtiesPanel } from "./SpecialtyRequestsManager";
 import { Users, Loader2, Search, Filter, ShieldCheck } from "lucide-react";
+import { useState, useMemo } from "react";
 
 export function ApprovedProfessionals() {
-  const { data, isLoading, isError } = useProfessionals();
+  const { data, isLoading, isError } = useAdminProfiles();
+  const [searchTerm, setSearchTerm] = useState("");
+
+  const approvedProfiles = useMemo(() => {
+    if (!data) return [];
+    return data.filter((profile: AdminProfessional) => {
+      const isApproved = profile.verificationStatus === "APPROVED";
+      const matchesSearch = searchTerm
+        ? `${profile.name} ${profile.lastName}`.toLowerCase().includes(searchTerm.toLowerCase())
+        : true;
+      return isApproved && matchesSearch;
+    });
+  }, [data, searchTerm]);
 
   if (isLoading) {
     return (
@@ -48,6 +61,8 @@ export function ApprovedProfessionals() {
               <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
               <input 
                 placeholder="Buscar por nombre..." 
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
                 className="w-full bg-white/40 dark:bg-white/5 border border-white/60 dark:border-white/10 rounded-2xl py-2.5 pl-11 pr-4 text-xs font-bold outline-none focus:ring-2 focus:ring-blue-500/20 transition-all"
               />
            </div>
@@ -58,7 +73,7 @@ export function ApprovedProfessionals() {
       </div>
 
       {/* LISTADO */}
-      {!data?.length ? (
+      {!approvedProfiles.length ? (
         <div className="bg-white/20 dark:bg-white/[0.02] border border-dashed border-slate-200 dark:border-white/10 rounded-[3rem] py-20 text-center">
           <Users className="mx-auto text-slate-300 mb-4" size={48} strokeWidth={1} />
           <p className="text-sm font-medium text-slate-400 italic">
@@ -67,7 +82,7 @@ export function ApprovedProfessionals() {
         </div>
       ) : (
         <div className="grid gap-6">
-          {data.map((profile: Professional) => (
+          {approvedProfiles.map((profile: AdminProfessional) => (
             <div 
               key={profile.id} 
               className="space-y-4 bg-white/40 dark:bg-neutral-900/40 backdrop-blur-md border border-white dark:border-white/5 rounded-[2.5rem] p-2 overflow-hidden hover:shadow-2xl hover:shadow-blue-500/5 transition-all duration-500"

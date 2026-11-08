@@ -1,6 +1,6 @@
 // ProfessionalAdminCard.tsx
 import { useReviewProfessionalProfile, useSetProfileStatus } from "@/hooks/admin/useAdminProfiles";
-import type { Professional } from "@/types/professional.type";
+import type { AdminProfessional } from "@/types/professional.type";
 import { staticbackend } from "@/config/variables";
 import {
   Check, X, RefreshCw,
@@ -8,9 +8,8 @@ import {
 } from "lucide-react";
 
 interface Props {
-  profile: Professional;
+  profile: AdminProfessional;
   children?: React.ReactNode;
-
 }
 import { ProfessionalProfile } from "@/features/Professional/ProfessionalProfile";
 import { Modal } from "@/components/ui/Modal";
@@ -66,7 +65,7 @@ export function ProfessionalAdminCard({ profile, children }: Props) {
             </h3>
             <span className="text-[10px] font-bold text-slate-400 dark:text-neutral-500 hidden sm:block">•</span>
             <span className="text-[10px] font-black text-blue-500 uppercase tracking-widest truncate">
-              {profile.specialties?.[0]?.name || "Especialista"}
+              {profile.specialties?.[0]?.specialty?.name || "Especialista"}
             </span>
           </div>
 
@@ -97,7 +96,17 @@ export function ProfessionalAdminCard({ profile, children }: Props) {
                 title="Perfil del profesional"
                 onClose={() => setOpenProfile(false)}
               >
-                <ProfessionalProfile professional={profile} />
+                <ProfessionalProfile
+                  professional={{
+                    ...profile,
+                    specialties: profile.specialties?.map((rel) => ({
+                      id: rel.specialty.id,
+                      name: rel.specialty.name,
+                      description: rel.specialty.description ?? undefined,
+                      status: rel.status,
+                    })),
+                  }}
+                />
               </Modal>
             )}
           </div>

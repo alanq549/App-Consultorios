@@ -1,4 +1,6 @@
 import api from "./axios";
+import type { AdminProfessional } from "@/types/professional.type";
+
 export type ProfessionalStatus =
   | "PENDING"
   | "APPROVED"
@@ -17,12 +19,12 @@ export const AdminApi = {
     return response.data;
   },
 
-  getAllProfiles: async () => {
+  getAllProfiles: async (): Promise<AdminProfessional[]> => {
     const response = await api.get("/admin/professionals");
     return response.data;
   },
 
-  getPendingProfiles: async () => {
+  getPendingProfiles: async (): Promise<AdminProfessional[]> => {
     const response = await api.get("/admin/profiles/pending");
     return response.data;
   },

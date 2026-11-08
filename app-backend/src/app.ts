@@ -28,10 +28,22 @@ app.use(cors({
 }));
 
 app.use(express.json());
-// Para servir archivos estaticos (como imagenes de avatar y certificados)
-app.use("/img", express.static("public/img"));
-app.use("/avatars", express.static(path.resolve(__dirname, "../public/img/avatars")));
-app.use("/certificates", express.static("public/certificates"));
+
+// 🔹 Cabecera de seguridad para prevenir MIME-sniffing
+app.use((_req, res, next) => {
+  res.setHeader("X-Content-Type-Options", "nosniff");
+  next();
+});
+
+// Para servir archivos estáticos (imágenes de avatar) con nosniff forzado
+const staticOptions = {
+  setHeaders: (res: express.Response) => {
+    res.setHeader("X-Content-Type-Options", "nosniff");
+  },
+};
+app.use("/img", express.static("public/img", staticOptions));
+app.use("/avatars", express.static(path.resolve(__dirname, "../public/img/avatars"), staticOptions));
+// Nota (Fase 4 D6): Se retira express.static('/certificates'); la entrega es privada y autenticada.
 
 // Rutas
 app.use("/api/auth", identityRoutes);

@@ -1,6 +1,16 @@
 import prisma from "@/shared/database/prisma";
 import { NotificationService } from "@/modules/notifications/notifications.service";
 import { SpecialtyStatus } from "@prisma/client";
+import { SuspendOnSpecialtyRevokedUseCase } from "@/modules/profiles/application/use-cases/suspend-on-specialty-revoked.use-case";
+import { PrismaProfessionalProfileRepository } from "@/modules/profiles/infrastructure/prisma/prisma-professional-profile-repository";
+import { PrismaCatalogSpecialtyChecker } from "@/modules/profiles/infrastructure/prisma/prisma-catalog-specialty-checker";
+
+const professionalProfileRepo = new PrismaProfessionalProfileRepository();
+const specialtyChecker = new PrismaCatalogSpecialtyChecker();
+const suspendOnSpecialtyRevokedUseCase = new SuspendOnSpecialtyRevokedUseCase(
+  professionalProfileRepo,
+  specialtyChecker
+);
 
 export class ProfessionalSpecialtyService {
 
@@ -98,43 +108,39 @@ export class ProfessionalSpecialtyService {
       },
     });
 
-    const remainingApproved = await tx.professionalSpecialty.count({
-      where: {
-        professionalId,
-        status: "APPROVED",
-      },
-    });
-
-    let profileSuspended = false;
-
-    if (remainingApproved === 0) {
-      await tx.professionalProfile.update({
-        where: { id: professionalId },
-        data: { verificationStatus: "SUSPENDED" },
-      });
-
-      profileSuspended = true;
-    }
+    // Reconciliación atómica delegada a Profiles bajo la misma transacción de Catalog (D5)
+    const profileSuspended =
+      await suspendOnSpecialtyRevokedUseCase.execute(professionalId, tx);
 
     return { updated, profileSuspended };
   });
 
-  // 🔔 NOTIFICACIONES FUERA DE TRANSACCIÓN (IMPORTANTE)
+    // 🔔 NOTIFICACIONES FUERA DE TRANSACCIÓN (POST-COMMIT BEST-EFFORT)
+    try {
+      if (newStatus === "APPROVED") {
+        await NotificationService.notifySpecialtyApproved(professionalId);
+      } else if (newStatus === "REJECTED") {
+        await NotificationService.notifySpecialtyRejected(professionalId);
+      }
 
-  if (newStatus === "APPROVED") {
-    await NotificationService.notifySpecialtyApproved(professionalId);
+      if (result.profileSuspended) {
+        // podrías tener una notificación más específica
+        // o reutilizar una genérica
+        await NotificationService.notifyProfileSuspended(professionalId);
+      }
+    } catch (err) {
+      console.error(
+        "Fallo observable en notificación post-commit de especialidad:",
+        {
+          professionalId,
+          specialtyId,
+          newStatus,
+          profileSuspended: result.profileSuspended,
+          error: err,
+        }
+      );
+    }
+
+    return { success: true };
   }
-
-  if (newStatus === "REJECTED") {
-    await NotificationService.notifySpecialtyRejected(professionalId);
-  }
-
-  if (result.profileSuspended) {
-    // podrías tener una notificación más específica
-    // o reutilizar una genérica
-    await NotificationService.notifyProfileSuspended(professionalId);
-  }
-
-  return { success: true };
-}
 }

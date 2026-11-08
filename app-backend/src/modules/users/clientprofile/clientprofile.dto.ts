@@ -2,12 +2,12 @@ import z from "zod"
 
 /// dto para "me"
 export interface ClientProfileResponseDTO {
-  id: number
-  name: string
-  lastName?: string | null
-  phone?: string | null
-  avatar?: string | null
-  appointmentsCount: number
+  id: number;
+  name: string;
+  lastName: string | null;
+  phone: string | null;
+  avatar: string | null;
+  appointmentsCount: number;
 }
 
 export const UpdateClientProfileSchema = z.object({

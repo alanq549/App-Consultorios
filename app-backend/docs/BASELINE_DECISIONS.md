@@ -341,13 +341,13 @@ Las fases posteriores no deben introducir nuevos `any`, nuevos accesos controlle
 
 **Estado:** `PENDING`.
 
-Depende de si los usuarios tienen memberships múltiples, si los perfiles son globales y qué significa ADMIN.
+El límite de Tenancy, el rol global ADMIN y ownership inicial de perfiles fueron aprobados en Fase 3. Fase 4 documenta propuestas D1–D8 para la división detallada de Profiles en `FASE4_PROFILES/01-DECISIONES-ARQUITECTURA.md`; siguen pendientes de revisión, por lo que la decisión transversal no se considera cerrada aún.
 
 #### AD-P-002 — Propiedad de ProfessionalSpecialty
 
 **Estado:** `PENDING`.
 
-Tiene invariantes propias, pero conecta aprobación profesional y catálogo. No se puede asignar definitivamente a Profiles o Catalog solo con el schema.
+Fase 4 propone Catalog como owner de la relación global de elegibilidad y ADMIN de plataforma como reviewer; Profiles consumiría un contrato de lectura para el lifecycle global del perfil. Esta propuesta, D5, sigue pendiente de revisión explícita.
 
 #### AD-P-003 — Propiedad de rating
 
@@ -431,14 +431,14 @@ Esta sección identifica candidatos arquitectónicos, no interfaces concretas.
 | Appointments → Catalog/Service | Validar servicio activo, profesional propietario, duración y datos para reservar. | Application contract de servicio reservable; referencia por ID; snapshot de nombre/precio/duración si aplica. | Fase 5/7 |
 | Appointments → Scheduling | Validar horario, slots y overlap. | Port/application service de disponibilidad y reserva; contrato de concurrencia. | Fase 6/7 |
 | Appointments → Profiles/Identity | Resolver actor cliente/profesional y ownership. | Actor context + referencias por ID; facade de participantes; no modelo Prisma externo. | Fase 2/3/7 |
-| Catalog → Professional approval/specialties | Validar que el profesional pueda ofrecer una specialty/service. | Application contract de elegibilidad o read model de aprobaciones. | Fase 4/5 |
+| Catalog → Professional approval/specialties | Validar elegibilidad global para crear oferta tenant-scoped. | Fase 4 propone application contract/read model de elegibilidad; owner/reviewer sujetos a aprobación D5. | Fase 4/5 |
 | Scheduling → existing appointments | Impedir cambios incompatibles con reservas futuras. | Policy contract de impacto en citas o consulta read-only; no repository cruzado. | Fase 6/7 |
 | Reviews → Appointment eligibility | Comprobar cliente, cita completada y ausencia de review. | Query contract de elegibilidad o evento de `AppointmentCompleted`. | Fase 7/9 |
 | Reviews → Professional rating | Actualizar reputación después de una review. | Domain/integration event + projection; alternativa temporal: application contract explícito. | Fase 9 |
 | Múltiples contexts → Notifications | Crear mensajes por cambios de negocio. | Domain/integration events y consumer de notifications; idempotencia. | Fase 8 |
 | Preferences → Identity | Asociar configuración al usuario autenticado. | Referencia por ID y actor contract; separar preferencias tenant si aplica. | Fase 1/9 |
 | Auth/register → Profiles/Catalog | Crear perfiles y relación specialty durante registro. | Orchestrating application service o workflow; contratos entre Identity y Profiles/Catalog. | Fase 2/4/5 |
-| Profiles → Catalog | Mostrar y aprobar specialties. | Query contract/read model; evitar navegación directa de repositories. | Fase 4/5 |
+| Profiles → Catalog | El perfil requiere elegibilidad aprobada; no posee la oferta tenant-scoped. | Fase 4 propone Catalog-owned eligibility contract/read model; aprobar D5 antes de implementar. | Fase 4/5 |
 | Service/Schedule → Appointments | Proteger desactivaciones con citas futuras. | Policy/read model de impacto; decisión de negocio antes de implementar. | Fase 6/7 |
 
 ### Regla de elección
@@ -594,10 +594,8 @@ Fase 0 puede declararse `APPROVED` cuando se cumpla todo lo siguiente:
 
 ### Decisiones `PENDING`
 
-- significado y alcance de ADMIN;
-- memberships múltiples;
-- ownership global/tenant de perfiles, clientes, servicios y specialties;
-- propiedad de ProfessionalSpecialty;
+- ownership global/tenant de servicios y taxonomía Specialty (Fase 5);
+- aprobación de las propuestas D1–D8 de Profiles (Fase 4; ver `FASE4_PROFILES/01-DECISIONES-ARQUITECTURA.md`);
 - propiedad y derivación de rating;
 - aggregate boundary definitivo de Appointment;
 - contrato de disponibilidad y concurrencia;
@@ -613,11 +611,13 @@ No hay un blocker para **terminar la documentación de Fase 0**.
 
 Sí existen blockers para fases de implementación concretas:
 
-1. **Fase 2/3:** definir actor, ADMIN y alcance tenant antes de cambiar autorización o agregar tenancy.
-2. **Fase 4/5:** decidir ownership de perfiles, specialties y ProfessionalSpecialty.
+1. **Fase 4:** revisar/aprobar las decisiones D1–D8; la documentación por sí sola no autoriza implementación.
+2. **Fase 5:** decidir ownership de servicios y taxonomía Specialty; `ProfessionalSpecialty` tiene una propuesta de owner en el registro Fase 4 pendiente de aprobación.
 3. **Fase 6/7:** decidir timezone, disponibilidad, concurrencia y efecto de cambios de service/schedule.
 4. **Fase 7:** resolver el invariant de participante de Appointment.
 5. **Fase 8/9:** decidir eventos/notificaciones y autoridad del rating.
+
+El significado de `ADMIN`, membership por tenant y ownership inicial de perfiles usados por Tenancy fueron resueltos en las decisiones aprobadas de Fase 3. Este inventario conserva los riesgos generales que siguen pendientes y no reemplaza el registro por fase.
 
 ### Riesgos diferidos explícitamente
 

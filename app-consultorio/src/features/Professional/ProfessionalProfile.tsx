@@ -105,11 +105,9 @@ export function ProfessionalProfile({ professional }: Props) {
             showValue
           />
 
-          {professional.verificationStatus && (
-            <div className="absolute -top-1 -right-1 bg-indigo-600 text-white p-1.5 rounded-lg shadow border-2 border-white dark:border-neutral-900">
-              <Award size={12} />
-            </div>
-          )}
+          <div className="absolute -top-1 -right-1 bg-indigo-600 text-white p-1.5 rounded-lg shadow border-2 border-white dark:border-neutral-900">
+            <Award size={12} />
+          </div>
         </div>
         {/* INFO */}
         <div className="flex-1 min-w-0">

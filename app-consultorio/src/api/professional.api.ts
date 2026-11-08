@@ -1,12 +1,14 @@
 // src/api/professional.api.ts
 import api from "./axios";
+import type { PublicProfessional } from "@/types/professional.type";
+
 export const professionalApi = {
-  getProfessionalProfile: async (id: number) => {
+  getProfessionalProfile: async (id: number): Promise<PublicProfessional> => {
     const { data } = await api.get(`/professionals/${id}`);
     return data;
   },
 
-  getProfessionalProfilesAll: async () => {
+  getProfessionalProfilesAll: async (): Promise<PublicProfessional[]> => {
     const { data } = await api.get("/professionals/Allprofiles");
     return data;
   },

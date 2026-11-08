@@ -21,7 +21,6 @@ export const UpdateProfessionalProfileSchema = z.object({
   name: z.string().min(1).optional(),
   lastName: z.string().optional(),
   phone: z.string().optional(),
-  description: z.string().optional(),
 });
 
 export type UpdateProfessionalProfileDTO = z.infer<typeof UpdateProfessionalProfileSchema>;

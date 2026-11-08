@@ -52,6 +52,11 @@ router.delete(
 // Certificados
 // --------------------
 
+router.get(
+  "/certificates/:id/download",
+  authMiddleware,
+  ProfessionalProfileController.downloadCertificate,
+);
 router.post(
   "/certificates",
   authMiddleware,

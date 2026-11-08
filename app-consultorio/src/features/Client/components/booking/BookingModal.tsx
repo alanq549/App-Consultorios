@@ -109,7 +109,7 @@ export function BookingModal({ professional, onClose }: Props) {
             <X size={20} />
           </button>
         </div>
-        
+
         {/* PROGRESS */}
         <div className="px-8 pt-4 pb-0">
           <div className="flex items-center gap-2 mb-1.5">
@@ -119,13 +119,12 @@ export function BookingModal({ professional, onClose }: Props) {
                 className="flex items-center gap-2 flex-1 last:flex-none"
               >
                 <div
-                  className={`flex items-center justify-center w-6 h-6 rounded-full text-[9px] font-black transition-all duration-300 ${
-                    s < step
+                  className={`flex items-center justify-center w-6 h-6 rounded-full text-[9px] font-black transition-all duration-300 ${s < step
                       ? "bg-blue-600 text-white"
                       : s === step
                         ? "bg-blue-600 text-white shadow-lg shadow-blue-500/30 scale-110"
                         : "bg-slate-100 dark:bg-white/5 text-slate-400"
-                  }`}
+                    }`}
                 >
                   {s < step ? <Check size={10} strokeWidth={3} /> : s}
                 </div>
@@ -144,13 +143,12 @@ export function BookingModal({ professional, onClose }: Props) {
             {["Servicio", "Fecha", "Horario", "Confirmar"].map((label, i) => (
               <span
                 key={label}
-                className={`text-[9px] font-black uppercase tracking-widest transition-colors ${
-                  i + 1 === step
+                className={`text-[9px] font-black uppercase tracking-widest transition-colors ${i + 1 === step
                     ? "text-blue-600 dark:text-blue-400"
                     : i + 1 < step
                       ? "text-slate-400"
                       : "text-slate-300 dark:text-neutral-600"
-                }`}
+                  }`}
               >
                 {label}
               </span>
@@ -208,11 +206,10 @@ export function BookingModal({ professional, onClose }: Props) {
                   ].map(({ label, value }) => (
                     <div
                       key={label}
-                      className={`flex items-center justify-between px-3 py-2 rounded-xl transition-all ${
-                        value
+                      className={`flex items-center justify-between px-3 py-2 rounded-xl transition-all ${value
                           ? "bg-white/50 dark:bg-white/5 border border-white/40 dark:border-white/10"
                           : "bg-white/20 dark:bg-white/[0.02] border border-dashed border-white/20 dark:border-white/5"
-                      }`}
+                        }`}
                     >
                       <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider">
                         {label}
@@ -241,28 +238,28 @@ export function BookingModal({ professional, onClose }: Props) {
                   />
                 )}
 
-               {service && !date && (
-  <div className="max-w-xs mx-auto">
-    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.15em] mb-6 text-center">
-      Selecciona una fecha
-    </label>
-    
-    <DatePicker 
-      value={date} 
-      onChange={(newDate) => {
-        setDate(newDate);
-        setSlot(null);
-      }} 
-    />
+                {service && !date && (
+                  <div className="max-w-xs mx-auto">
+                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.15em] mb-6 text-center">
+                      Selecciona una fecha
+                    </label>
 
-    <button
-      onClick={() => setService(null)}
-      className="w-full mt-8 py-4 rounded-2xl font-black text-[11px] uppercase tracking-widest text-slate-400 hover:text-slate-600 dark:hover:text-white transition-all"
-    >
-      ← Volver a servicios
-    </button>
-  </div>
-)}
+                    <DatePicker
+                      value={date}
+                      onChange={(newDate) => {
+                        setDate(newDate);
+                        setSlot(null);
+                      }}
+                    />
+
+                    <button
+                      onClick={() => setService(null)}
+                      className="w-full mt-8 py-4 rounded-2xl font-black text-[11px] uppercase tracking-widest text-slate-400 hover:text-slate-600 dark:hover:text-white transition-all"
+                    >
+                      ← Volver a servicios
+                    </button>
+                  </div>
+                )}
 
                 {service && date && !slot && (
                   <TimeSlotPicker
@@ -291,15 +288,13 @@ export function BookingModal({ professional, onClose }: Props) {
                       alt={professional.name}
                       className="w-20 h-20 rounded-[1.5rem] object-cover border-2 border-white/60 dark:border-white/10 shadow-xl"
                     />
-                    {professional.verificationStatus === "APPROVED" && (
-                      <div className="absolute -bottom-1.5 -right-1.5 w-6 h-6 bg-blue-600 rounded-full flex items-center justify-center shadow-md">
-                        <Check
-                          size={12}
-                          strokeWidth={3}
-                          className="text-white"
-                        />
-                      </div>
-                    )}
+                    <div className="absolute -bottom-1.5 -right-1.5 w-6 h-6 bg-blue-600 rounded-full flex items-center justify-center shadow-md">
+                      <Check
+                        size={12}
+                        strokeWidth={3}
+                        className="text-white"
+                      />
+                    </div>
                   </div>
                   <div className="text-center">
                     <p className="font-black text-slate-800 dark:text-white text-lg tracking-tight">

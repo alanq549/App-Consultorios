@@ -1,6 +1,6 @@
 import { usePendingProfiles } from "@/hooks/admin/useAdminProfiles";
 import { ProfessionalAdminCard } from "./ProfessionalAdminCard";
-import type { Professional } from "@/types/professional.type";
+import type { AdminProfessional } from "@/types/professional.type";
 import { ShieldCheck, UserCheck, Loader2, Info } from "lucide-react";
 import { ProfessionalSpecialtiesPanel } from "./SpecialtyRequestsManager";
 
@@ -63,7 +63,7 @@ export function PendingProfessionals() {
         </div>
       ) : (
         <div className="grid gap-6">
-            {data.map((profile: Professional) => (
+            {data.map((profile: AdminProfessional) => (
                     <ProfessionalAdminCard
                       key={profile.id}
                       profile={profile}

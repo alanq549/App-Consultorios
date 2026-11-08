@@ -1,5 +1,5 @@
 // src/modules/users/professionalprofile/professionalprofile.types.ts
-import {ProfessionalStatus } from "@prisma/client";
+/// ATENCIÓN: Cambio intencional de privacidad Fase 4 (D2) — verificationStatus ya no se serializa en el perfil público.
 export interface PublicProfessionalProfile {
   id: number;
   name: string;
@@ -17,12 +17,9 @@ export interface PublicProfessionalProfile {
     type: "FACEBOOK" | "INSTAGRAM" | "LINKEDIN" | "WEBSITE";
     url: string;
   }[];
-  verificationStatus: ProfessionalStatus; // o usar enum ProfessionalStatus
-  specialties: {
+  specialties?: {
     id: number;
     name: string;
     description?: string | null;
   }[];
-
-
 }

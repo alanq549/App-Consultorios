@@ -65,7 +65,7 @@ Conjunto mínimo que parece necesitar consistencia transaccional inmediata. Una 
 | `User` | Identity | Identity | Cuenta, credenciales y estado de verificación. |
 | Tokens y credenciales temporales | Identity | Identity | Seguridad de autenticación y recuperación. |
 | Perfiles | Cada perfil/Profiles | Profiles | Datos operativos y públicos del tipo de usuario. |
-| `ProfessionalSpecialty` | Profiles/Catalog, pendiente | Profiles o Catalog | Relación con estado y revisión propia. |
+| `ProfessionalSpecialty` | Catalog propuesto en Fase 4, pendiente de revisión | Catalog | Elegibilidad global; no equivale a oferta tenant-scoped. Ver registro D5. |
 | `Specialty` | Catalog | Catalog | Catálogo global o tenant-owned, decisión pendiente. |
 | `Service` | Catalog | Catalog | Oferta del profesional, con vínculo a scheduling/appointments. |
 | `Schedule` | Scheduling | Scheduling | Reglas de disponibilidad del profesional. |
@@ -74,6 +74,8 @@ Conjunto mínimo que parece necesitar consistencia transaccional inmediata. Una 
 | `Review` | Reviews | Reviews | Reseña posterior a una cita. |
 | `Notification` | Notifications | Notifications | Mensaje dirigido a un usuario o evento de negocio. |
 | `CustomConfig` | Preferences | Preferences | Preferencias de experiencia del usuario. |
+
+**Actualización de estado:** este baseline conserva observaciones históricas. Las propuestas D1–D8 de Fase 4 refinan las decisiones de Profiles y están pendientes de aprobación; consultar [FASE4_PROFILES/01-DECISIONES-ARQUITECTURA.md](FASE4_PROFILES/01-DECISIONES-ARQUITECTURA.md) antes de usar las notas «pendientes» siguientes como estado vigente.
 
 ## 1. Identity y autenticación
 
@@ -277,9 +279,7 @@ Entidad 1:1 dependiente de `User`; no hay evidencia para incluirla dentro del ag
 
 **Decisiones pendientes**
 
-- si `AdminProfile` seguirá existiendo;
-- si ADMIN es operador global o administrador de tenant;
-- si el perfil administrativo es un concepto de negocio o solo presentación.
+La propuesta D3 de Fase 4 asigna `AdminProfile` a Profiles como presentación personal global y conserva ADMIN como operador de plataforma. Está pendiente de revisión.
 
 ### `ClientProfile`
 
@@ -326,9 +326,7 @@ Profiles o Customer Identity. `Appointments` debe depender conceptualmente de un
 
 **Decisiones pendientes**
 
-- si un cliente puede pertenecer a varios tenants;
-- si el perfil es global o tenant-owned;
-- si el cliente guest puede convertirse en ClientProfile.
+La propuesta D1 de Fase 4 define `ClientProfile` como global y propiedad de Profiles; no decide conversión de `GuestClient`, que permanece fuera de alcance.
 
 ### `ProfessionalProfile`
 
@@ -370,7 +368,7 @@ Profiles/Professional Onboarding. Puede colaborar con Catalog, Scheduling, Appoi
 
 **Aggregate boundary candidato**
 
-El perfil y su estado de aprobación podrían formar un aggregate. `ProfessionalSpecialty` puede estar dentro del mismo boundary si la decisión de aprobación es inseparable; sin embargo, la regla actual también conecta con Catalog y tiene ciclo propio, por lo que esto queda abierto.
+La propuesta D4 de Fase 4 mantiene el lifecycle de `ProfessionalProfile` en Profiles. D5 propone `ProfessionalSpecialty` como elegibilidad global propiedad de Catalog, consultada por Profiles mediante contrato; la propuesta está pendiente de revisión.
 
 **Dependencias futuras**
 
@@ -381,10 +379,7 @@ El perfil y su estado de aprobación podrían formar un aggregate. `Professional
 
 **Decisiones pendientes**
 
-- si rating pertenece a Profiles o Reviews;
-- si aprobación profesional y aprobación de especialidad son un mismo proceso;
-- si un profesional pertenece a uno o varios tenants;
-- qué campos son públicos.
+Consultar D2 y D4–D5 de Fase 4 para perfil global, verificación y separación de specialty. Rating se difiere a Fase 9. Estas propuestas aún requieren aprobación.
 
 ### `Certificate`
 
@@ -392,7 +387,7 @@ El perfil y su estado de aprobación podrían formar un aggregate. `Professional
 
 - Tiene `profileId`, nombre, emisor, fecha y `fileUrl`.
 - `ProfessionalProfileService` lo crea y elimina, validando que pertenezca al perfil del usuario.
-- Se incluye en vistas `me` y públicas.
+- Se incluye en la vista privada `me`; la proyección pública actual devuelve una lista vacía de certificados.
 - Cascadea al eliminar `ProfessionalProfile`.
 
 **Reglas/invariantes observadas**
@@ -417,8 +412,7 @@ Entidad dependiente del perfil profesional; no hay evidencia de aggregate indepe
 
 **Decisiones pendientes**
 
-- si un certificado requiere revisión/aprobación;
-- si `fileUrl` pertenece a un contexto de media/storage separado.
+La propuesta D6 de Fase 4 define evidencia privada global, sin aprobación ni exposición pública en esta fase. El static route actual `/certificates` contradice esa política y debe corregirse en implementación; la propuesta está pendiente de revisión.
 
 ### `SocialLink`
 
@@ -427,7 +421,7 @@ Entidad dependiente del perfil profesional; no hay evidencia de aggregate indepe
 - Tiene `profileId`, `type`, `url` y unique `[profileId, type]`.
 - Se crea, actualiza y elimina desde `ProfessionalProfileService`.
 - Las operaciones de actualización/eliminación verifican ownership mediante el perfil del usuario.
-- Se expone en `me` y perfiles públicos.
+- Se incluye en `me`; la proyección pública vigente obtiene enlaces de revisiones de afiliación, no debe depender de esta tabla global.
 
 **Reglas/invariantes observadas**
 
@@ -445,8 +439,7 @@ Entidad dependiente del perfil.
 
 **Decisiones pendientes**
 
-- catálogo fijo de redes versus configuración extensible;
-- política de visibilidad y moderación.
+La propuesta D8 de Fase 4 trata esta tabla/rutas como legacy no publicable; bio y enlaces públicos pasan por revisiones tenant-scoped de afiliación. Está pendiente de revisión.
 
 ### `ProfessionalSpecialty`
 
@@ -478,11 +471,11 @@ Entidad dependiente del perfil.
 
 **Propietario conceptual candidato**
 
-Indeterminado entre Profiles/Professional Onboarding y Catalog. Semánticamente parece una solicitud/afiliación del profesional al catálogo, no una mera tabla de join.
+Catalog propuesto en D5 de Fase 4 como dueño de la elegibilidad global; pendiente de revisión. Fase 3 ya decidió que no representa oferta clínica tenant-scoped.
 
 **Bounded context candidato**
 
-Professional Onboarding o Catalog Membership.
+Catalog para solicitud/revisión de elegibilidad; Profiles consume el resultado por contrato. La oferta por tenant es un concepto separado de Catalog.
 
 **Aggregate boundary candidato**
 
@@ -497,10 +490,7 @@ Podría ser aggregate root de la solicitud de especialidad usando la clave compu
 
 **Decisiones pendientes**
 
-- quién es dueño de la aprobación;
-- si una specialty es global o tenant-owned;
-- si el rechazo de la última specialty debe suspender automáticamente al profesional;
-- si la solicitud debe conservar historial de estados.
+La propuesta D5 asigna la revisión global a ADMIN de plataforma, conserva la regla existente de suspender el perfil al perder la última specialty aprobada y no convierte esta relación en oferta. La propiedad y la semántica propuestas esperan aprobación de Fase 4; el alcance global/tenant de `Specialty` como catálogo se decide en Fase 5.
 
 ## 3. Catalog
 
@@ -1026,7 +1016,7 @@ Responsable candidato de `User`, verificación, reset y refresh tokens. Debe pub
 
 ### Profiles / Professional Onboarding
 
-Responsable candidato de perfiles y credenciales profesionales. La propiedad de `ProfessionalSpecialty` requiere decisión: puede ser onboarding o una relación administrada por Catalog.
+Responsable de perfiles y credenciales profesionales según la propuesta D1–D8 de Fase 4, pendiente de revisión. D5 propone que Catalog sea dueño de `ProfessionalSpecialty`; Profiles consume elegibilidad mediante contrato.
 
 ### Catalog
 

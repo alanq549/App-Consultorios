@@ -89,6 +89,8 @@ Archivos:
 | `ClientProfileResponseDTO` | interface | Respuesta de perfil cliente para `me`. |
 | `PublicProfessionalProfile` | interface | Shape de perfil profesional público. |
 
+**Cambio intencional propuesto por Fase 4 D2 (pendiente de aprobación/implementación):** el DTO de `GET /api/professionals/:id` y `/Allprofiles` dejará de serializar `verificationStatus`; solo incluirá perfiles globalmente aprobados. El estado permanece en la proyección privada `GET /api/users/me`. Actualizar `app-consultorio` y probar ambos contratos; no preservar el campo público por compatibilidad.
+
 **Hecho observado:** `UpdateProfileDTO` y los schemas específicos de cliente/profesional representan campos parcialmente solapados (`name`, `lastName`, `phone`, `description`). `UpdateProfileInput` es una unión entre DTOs de perfil.
 
 **Riesgo/deuda:** la unión permite que `UsersService` reciba un contrato que depende de servicios de perfiles concretos. Además, `UpdateProfileDTO` incluye `description`, aunque ese campo no pertenece al perfil cliente en el schema específico observado.

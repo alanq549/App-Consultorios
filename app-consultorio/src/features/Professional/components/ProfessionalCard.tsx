@@ -28,12 +28,11 @@ export function ProfessionalCard({ professional: p, isSelected, onSelect, onView
     >
       {/* BADGE */}
       <div className="absolute top-4 right-4">
-        {isSelected && (
+        {isSelected ? (
           <div className="bg-blue-500 text-white p-1.5 rounded-full shadow-lg">
             <CheckCircle2 size={18} />
           </div>
-        )}
-        {!isSelected && p.verificationStatus === "APPROVED" && (
+        ) : (
           <div className="bg-slate-100 dark:bg-neutral-800 text-blue-500 p-1.5 rounded-full border">
             <Award size={16} />
           </div>
