@@ -357,6 +357,8 @@ src/modules/profiles/
 
 ## Fase 5 — Catalog
 
+El plano ejecutable se desglosa en misiones independientes de menos de 100 líneas en [FASE5_CATALOG/00-PLAN.md](FASE5_CATALOG/00-PLAN.md). La Misión 0 debe aprobar ownership y reglas de oferta/citas futuras antes de cambios de schema o backfill. Fase 4 ya aprobó Catalog como owner de `ProfessionalSpecialty` e implementó el port transaccional Profiles; Fase 5 debe integrarlo, no duplicarlo.
+
 ### Objetivo
 
 Consolidar servicios, especialidades y relaciones profesionales bajo un único contexto de catálogo.
