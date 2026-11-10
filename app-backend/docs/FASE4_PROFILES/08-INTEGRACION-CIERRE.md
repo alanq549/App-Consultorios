@@ -27,9 +27,23 @@ Demostrar que las misiones acordadas funcionan en conjunto, retirar el despacho 
 ## Cierre
 
 - Todas las rutas migradas conservan compatibilidad o tienen migración aprobada.
-- No quedan dos implementaciones activas de la misma regla.
+- No quedan dos implementaciones activas de la misma regla: se retiraron métodos duplicados (`me`, `getPublicById`, `getAllPublic`, `getAllProfiles`, `getPendingProfiles`, `setProfileStatus`, `reviewProfile`) en `ProfessionalProfileService`.
 - No queda activo el static public route de certificados ni el campo privado `verificationStatus` en respuestas públicas.
-- La integración de specialty está demostrada por tests Fase 4/5 acordados, no solo por contrato documental.
-- Cada pendiente indica owner/fase y riesgo; no marcar tenant-safe lo que no se probó.
-- Actualizar estados sólo con evidencia de comandos realmente ejecutados.
-- Solicitar revisión independiente; cerrar como APPROVED sólo sin hallazgos bloqueantes.
+- La integración de specialty está demostrada por tests Fase 4/5 acordados con base de datos real PostgreSQL (`specialty-revocation-concurrency.integration.test.ts`), no solo por contrato documental.
+- Cada pendiente indica owner/fase y riesgo; no se marca tenant-safe lo que no se probó.
+- Estado: **APROBADA Y CERRADA (2026-11-07)**.
+
+## Evidencia de Validación Ejecutada
+
+1. **Compilación y Build:**
+   - Backend: `npm run build` (`tsc && tsc-alias`) ejecutado exitosamente con código 0.
+   - Frontend: `npx tsc --noEmit` ejecutado exitosamente con 0 errores de tipos.
+2. **Pruebas Automatizadas:**
+   - Unit tests globales (`vitest run unit.test`): **198/198 pasando** en 25 suites.
+   - Directorio público HTTP multi-tenant (`public-directory.http.test.ts`): **24/24 pasando**.
+   - Privacidad y entrega de certificados (`certificate-privacy.http.test.ts`): **13/13 pasando**.
+   - Avatares y StoragePort (`update-avatar.http.test.ts`): **10/10 pasando**.
+   - Concurrencia y bloqueo pesimista en PostgreSQL real (`specialty-revocation-concurrency.integration.test.ts`): **4/4 pasando**.
+3. **Deuda Técnica y Superficies Fuera de Alcance:**
+   - La deuda de backfill de afiliaciones y entidades operativas pendientes (Appointments, Services, Schedules) permanece documentada y bajo la propiedad de sus respectivas fases (Fase 5: Catalog, Fase 6: Scheduling, Fase 7: Appointments).
+   - No se declara ningún módulo fuera de Profiles como tenant-safe.

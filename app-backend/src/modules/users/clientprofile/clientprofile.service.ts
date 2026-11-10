@@ -8,6 +8,10 @@ const clientProfileRepo = new PrismaClientProfileRepository();
 const getClientProfileUseCase = new GetClientProfileUseCase(clientProfileRepo);
 const updateClientProfileUseCase = new UpdateClientProfileUseCase(clientProfileRepo);
 
+/**
+ * @deprecated Fachada legacy de compatibilidad. Utilizar `GetClientProfileUseCase`,
+ * `UpdateClientProfileUseCase` o `PrismaClientProfileRepository`.
+ */
 export class ClientProfileService {
   static async findByUserId(userId: number) {
     return clientProfileRepo.findByUserId(userId);

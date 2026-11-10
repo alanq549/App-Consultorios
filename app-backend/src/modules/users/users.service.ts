@@ -1,7 +1,6 @@
 // src/modules/users/users.service.ts
 import { Role } from "@prisma/client";
 import { UpdateProfileInput } from "./users.types";
-import { UpdateProfessionalProfileDTO } from "./professionalprofile/professionalprofile.dto";
 import { PrismaUserIdentityReader } from "@/modules/profiles/infrastructure/prisma/prisma-user-identity-reader";
 import { PrismaClientProfileRepository } from "@/modules/profiles/infrastructure/prisma/prisma-client-profile-repository";
 import { PrismaProfessionalProfileRepository } from "@/modules/profiles/infrastructure/prisma/prisma-professional-profile-repository";
@@ -41,6 +40,11 @@ const updateAvatarUseCase = new UpdateAvatarUseCase(
   storageAdapter
 );
 
+/**
+ * @deprecated Fachada legacy de compatibilidad. Los endpoints y consumidores deben invocar
+ * directamente los Casos de Uso del módulo `profiles` (`GetCurrentUserUseCase`,
+ * `UpdateClientProfileUseCase`, `UpdateProfessionalProfileUseCase`, `UpdateAvatarUseCase`).
+ */
 export class UsersService {
   static async me(userId: number, role: Role) {
     return getCurrentUserUseCase.execute({ userId, role });
@@ -59,12 +63,7 @@ export class UsersService {
       return updateClientProfileUseCase.execute(userId, data);
     }
     if (role === "PROFESSIONAL") {
-      const profData = data as UpdateProfessionalProfileDTO;
-      return updateProfessionalProfileUseCase.execute(userId, {
-        name: profData.name,
-        lastName: profData.lastName,
-        phone: profData.phone,
-      });
+      return updateProfessionalProfileUseCase.execute(userId, data);
     }
     throw new Error("Rol no soportado");
   }

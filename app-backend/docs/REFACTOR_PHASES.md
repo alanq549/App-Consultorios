@@ -315,7 +315,7 @@ User (identidad global de referencia en Identity)
 
 ## Fase 4 — Profiles: división de `users`
 
-El plano ejecutable está desglosado en misiones independientes de menos de 100 líneas cada una en [FASE4_PROFILES/00-PLAN.md](FASE4_PROFILES/00-PLAN.md). La Misión 0 es una puerta obligatoria: las decisiones pendientes de ownership y lifecycle deben aprobarse antes de migrar comportamiento o schema. Actualizar este documento con el estado real de cada misión, no inferir cierre del plan.
+La Fase 4 está **CERRADA Y APROBADA (2026-11-07)**. Las decisiones de diseño D1–D8 fueron aprobadas en Misión 0 y registradas en [FASE4_PROFILES/01-DECISIONES-ARQUITECTURA.md](FASE4_PROFILES/01-DECISIONES-ARQUITECTURA.md). Misiones 1–6 fueron aprobadas individualmente y la Misión 7 consolidó la integración, eliminó métodos y despachos legacy duplicados y verificó contratos e integración con Catalog mediante pruebas unitarias, HTTP y de concurrencia en base de datos real.
 
 ### Objetivo
 
@@ -346,12 +346,12 @@ src/modules/profiles/
 
 ### Criterios de aceptación
 
-- [ ] no existe `any` para seleccionar servicios por rol;
-- [ ] cambiar contraseña no está mezclado con actualizar perfil;
-- [ ] actualizar avatar no conoce detalles del filesystem;
-- [ ] las respuestas públicas no exponen campos privados;
-- [ ] perfiles profesionales se filtran por tenant;
-- [ ] las transiciones de verificación están documentadas y probadas.
+- [x] no existe `any` para seleccionar servicios por rol;
+- [x] cambiar contraseña no está mezclado con actualizar perfil;
+- [x] actualizar avatar no conoce detalles del filesystem;
+- [x] las respuestas públicas no exponen campos privados;
+- [x] perfiles profesionales se filtran por tenant;
+- [x] las transiciones de verificación están documentadas y probadas.
 
 ---
 

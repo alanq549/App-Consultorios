@@ -4,6 +4,10 @@ import { AdminProfileNotFoundError } from "@/modules/profiles/domain/profile-err
 
 const adminRepo = new PrismaAdminProfileRepository();
 
+/**
+ * @deprecated Fachada legacy de compatibilidad. Utilizar `PrismaAdminProfileRepository`
+ * o los casos de uso correspondientes del módulo `profiles`.
+ */
 export class AdminProfileService {
   static async findByUserId(userId: number) {
     return adminRepo.findByUserId(userId);

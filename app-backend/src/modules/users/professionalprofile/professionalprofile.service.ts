@@ -2,18 +2,13 @@
 import prisma from "@/shared/database/prisma";
 import path from "node:path";
 import fs from "node:fs";
-import { PublicProfessionalProfile } from "./professionalprofile.type";
-import { ProfessionalStatus, SpecialtyStatus } from "@prisma/client";
 import {
   UpdateProfessionalProfileDTO,
   CreateCertificateDTO,
   CreateSocialLinkDTO,
   UpdateSocialLinkDTO,
 } from "./professionalprofile.dto";
-import { NotificationService } from "@/modules/notifications/notifications.service";
 import { PrismaProfessionalProfileRepository } from "@/modules/profiles/infrastructure/prisma/prisma-professional-profile-repository";
-import { GetPublicProfessionalProfileUseCase } from "@/modules/profiles/application/use-cases/get-public-professional-profile.use-case";
-import { ListPublicProfessionalProfilesUseCase } from "@/modules/profiles/application/use-cases/list-public-professional-profiles.use-case";
 import { UpdateProfessionalProfileUseCase } from "@/modules/profiles/application/use-cases/update-professional-profile.use-case";
 import {
   ProfessionalProfileNotFoundError,
@@ -23,10 +18,6 @@ import {
 } from "@/modules/profiles/domain/profile-errors";
 
 const professionalProfileRepo = new PrismaProfessionalProfileRepository();
-const getPublicProfessionalProfileUseCase =
-  new GetPublicProfessionalProfileUseCase(professionalProfileRepo);
-const listPublicProfessionalProfilesUseCase =
-  new ListPublicProfessionalProfilesUseCase(professionalProfileRepo);
 const updateProfessionalProfileUseCase =
   new UpdateProfessionalProfileUseCase(professionalProfileRepo);
 
@@ -37,183 +28,7 @@ export class ProfessionalProfileService {
     });
   }
 
-  static async me(userId: number) {
-    const profile = await prisma.professionalProfile.findUnique({
-      where: { userId },
-      include: {
-        specialties: {
-          include: { specialty: true },
-        },
-        socialLinks: {
-          where: {
-            type: {
-              in: ["FACEBOOK", "INSTAGRAM", "LINKEDIN", "WEBSITE"],
-            },
-          },
-        },
-        certificates: true,
-      },
-    });
-
-    if (!profile) throw new Error("Perfil profesional no existe");
-
-    const {
-      id,
-      name,
-      lastName,
-      phone,
-      avatar,
-      description,
-      verificationStatus,
-      specialties,
-      socialLinks,
-      certificates,
-    } = profile;
-
-    return {
-      id,
-      name,
-      lastName,
-      phone,
-      avatar,
-      description,
-      ratingAvg: profile.ratingAvg,
-      ratingCount: profile.ratingCount,
-      verificationStatus,
-
-      specialties: specialties.map((ps) => ({
-        id: ps.specialty.id,
-        name: ps.specialty.name,
-        description: ps.specialty.description,
-        status: ps.status,
-
-      })),
-
-      socialLinks: socialLinks.map((link) => ({
-        id: link.id,
-        type: link.type,
-        url: link.url,
-      })),
-
-      certificates: certificates.map((cert) => ({
-        id: cert.id,
-        name: cert.name,
-        issuedBy: cert.issuedBy,
-        issuedDate: cert.issuedDate,
-        fileUrl: cert.fileUrl,
-      })),
-    };
-  }
-
-  static async getPublicById(
-    profileId: number,
-    tenantId: number,
-  ): Promise<PublicProfessionalProfile | null> {
-    return getPublicProfessionalProfileUseCase.execute(
-      profileId,
-      tenantId
-    ) as Promise<PublicProfessionalProfile | null>;
-  }
-
-  // Listar todos los perfiles aprobados con su información pública
-  static async getAllPublic(
-    tenantId: number,
-  ): Promise<PublicProfessionalProfile[]> {
-    return listPublicProfessionalProfilesUseCase.execute(
-      tenantId
-    ) as Promise<PublicProfessionalProfile[]>;
-  }
- // listar a todos los perfiles (solo para admin)
-  static async getAllProfiles() {
-  return prisma.professionalProfile.findMany({
-    include: {
-      specialties: {
-        include: { specialty: true },
-      },
-      socialLinks: true,
-    },
-  });
-}
-  /// listar a los perfiles pendientes de aprobación (solo para admin)
-  static async getPendingProfiles() {
-    return prisma.professionalProfile.findMany({
-      where: { verificationStatus: "PENDING" },
-      include: {
-        specialties: {
-          where: { status: SpecialtyStatus.APPROVED },
-          include: { specialty: true },
-        },
-      },
-    });
-  }
-
-  // suspender o reactivar un perfil (solo para admin)
-static async setProfileStatus(
-  profileId: number,
-  newStatus: ProfessionalStatus,
-) {
-  const profile = await prisma.professionalProfile.findUnique({
-    where: { id: profileId },
-  });
-
-  if (!profile) {
-    throw new Error("Perfil profesional no encontrado");
-  }
-
-  const oldStatus = profile.verificationStatus;
-
-  if (oldStatus === newStatus) {
-    return profile;
-  }
-
-  const allowedTransitions: Record<ProfessionalStatus, ProfessionalStatus[]> = {
-    PENDING: ["APPROVED", "REJECTED"],
-    APPROVED: ["SUSPENDED"],
-    SUSPENDED: ["APPROVED"],
-    REJECTED: [],
-  };
-
-  if (!allowedTransitions[oldStatus].includes(newStatus)) {
-    throw new Error(`Transición inválida de ${oldStatus} a ${newStatus}`);
-  }
-
-  if (newStatus === "APPROVED") {
-    const approvedSpecialties = await prisma.professionalSpecialty.count({
-      where: {
-        professionalId: profileId,
-        status: "APPROVED",
-      },
-    });
-
-    if (approvedSpecialties === 0) {
-      throw new Error(
-        "El perfil no puede aprobarse sin al menos una especialidad aprobada"
-      );
-    }
-  }
-
-  const updated = await prisma.professionalProfile.update({
-    where: { id: profileId },
-    data: { verificationStatus: newStatus },
-  });
-
-  // 🔔 NOTIFICACIONES (SIDE EFFECT)
-  if (newStatus === "APPROVED") {
-    await NotificationService.notifyProfileApproved(profile.userId);
-  }
-
-  if (newStatus === "REJECTED") {
-    await NotificationService.notifyProfileRejected(profile.userId);
-  }
-
-  if (newStatus === "SUSPENDED") {
-    await NotificationService.notifyProfileSuspended(profile.userId);
-  }
-
-  return updated;
-}
-
-  /// actualizar perfil
+  /// actualizar perfil (delega en el caso de uso de perfiles)
   static async updateProfile(
     userId: number,
     data: UpdateProfessionalProfileDTO,
@@ -383,37 +198,5 @@ static async setProfileStatus(
     }
 
     return { message: "Certificado eliminado" };
-  }
-
-  static async reviewProfile(
-    profileId: number,
-    status: "APPROVED" | "REJECTED",
-  ) {
-    const profile = await prisma.professionalProfile.findUnique({
-      where: { id: profileId },
-    });
-
-    if (!profile) {
-      throw new Error("Profile not found");
-    }
-
-    if (profile.verificationStatus === status) {
-      return profile;
-    }
-
-    const updated = await prisma.professionalProfile.update({
-      where: { id: profileId },
-      data: { verificationStatus: status },
-    });
-
-    if (status === "APPROVED") {
-      await NotificationService.notifyProfileApproved(profile.userId);
-    }
-
-    if (status === "REJECTED") {
-      await NotificationService.notifyProfileRejected(profile.userId);
-    }
-
-    return updated;
   }
 }
