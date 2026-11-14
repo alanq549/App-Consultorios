@@ -101,6 +101,15 @@ class FakeAffiliationChecker implements ActiveAffiliationCheckerPort {
   ): Promise<boolean> {
     return this.activeAffiliations.has(`${professionalProfileId}:${tenantId}`);
   }
+
+  async findActiveAffiliationId(
+    professionalProfileId: number,
+    tenantId: number,
+  ): Promise<number | null> {
+    return this.activeAffiliations.has(`${professionalProfileId}:${tenantId}`)
+      ? professionalProfileId * 1000 + tenantId
+      : null;
+  }
 }
 
 class FakeProfessionalSpecialtyQuery

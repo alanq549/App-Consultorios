@@ -20,4 +20,15 @@ export interface ActiveAffiliationChecker {
     professionalProfileId: number,
     tenantId: number,
   ): Promise<boolean>;
+
+  /**
+   * Resuelve el ID de la afiliación ACTIVE del profesional en un tenant activo.
+   *
+   * @returns El `id` de la `ProfessionalTenantAffiliation` ACTIVE, o `null` si el profesional no
+   *          tiene una afiliación activa en ese tenant.
+   */
+  findActiveAffiliationId(
+    professionalProfileId: number,
+    tenantId: number,
+  ): Promise<number | null>;
 }

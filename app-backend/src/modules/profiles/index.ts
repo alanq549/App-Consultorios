@@ -6,3 +6,9 @@ export { PrismaActiveAffiliationChecker } from "./affiliations/infrastructure/pr
 
 export type { ProfilesEligibilityContract } from "./application/ports/profiles-eligibility-contract.port";
 export { PrismaProfilesEligibilityService } from "./infrastructure/prisma/prisma-profiles-eligibility-service";
+
+export type {
+  ProfessionalTenantContext,
+  ProfessionalTenantContextContract,
+} from "./application/ports/professional-tenant-context.port";
+export { PrismaProfessionalTenantContext } from "./infrastructure/prisma/prisma-professional-tenant-context";

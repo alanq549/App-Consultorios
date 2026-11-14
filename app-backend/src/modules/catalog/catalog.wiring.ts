@@ -9,10 +9,13 @@
 import { PrismaSpecialtyRepository } from "./infrastructure/prisma/prisma-specialty-repository";
 import { PrismaProfessionalSpecialtyRepository } from "./infrastructure/prisma/prisma-professional-specialty-repository";
 import { PrismaProfessionalPublicSpecialtyQuery } from "./infrastructure/prisma/prisma-professional-public-specialty-query";
+import { PrismaServiceOfferRepository } from "./infrastructure/prisma/prisma-service-offer-repository";
 import { ActiveAffiliationCheckerPort } from "./application/ports/active-affiliation-checker.port";
 import { ProfileSuspensionPort } from "./application/ports/profile-suspension.port";
 import { ProfessionalProfilePort } from "./application/ports/professional-profile-lookup.port";
 import { CatalogNotificationPort } from "./application/ports/catalog-notification.port";
+import { OfferWriteContextPort } from "./application/ports/offer-write-context.port";
+import { OfferAppointmentPolicyPort } from "./application/ports/offer-appointment-policy.port";
 import { PrismaTransactionRunner } from "./infrastructure/prisma/prisma-transaction-context";
 
 import { CreateSpecialtyUseCase } from "./application/use-cases/create-specialty.use-case";
@@ -25,10 +28,16 @@ import { GetSpecialtyByIdUseCase } from "./application/use-cases/get-specialty-b
 import { ListProfessionalPublicSpecialtiesUseCase } from "./application/use-cases/list-professional-public-specialties.use-case";
 import { RequestProfessionalSpecialtyUseCase } from "./application/use-cases/request-professional-specialty.use-case";
 import { ReviewProfessionalSpecialtyUseCase } from "./application/use-cases/review-professional-specialty.use-case";
+import { CreateServiceOfferUseCase } from "./application/use-cases/create-service-offer.use-case";
+import { UpdateServiceOfferUseCase } from "./application/use-cases/update-service-offer.use-case";
+import { DeactivateServiceOfferUseCase } from "./application/use-cases/deactivate-service-offer.use-case";
+import { ListProfessionalPublicOffersUseCase } from "./application/use-cases/list-professional-public-offers.use-case";
 
 import { ProfessionalSpecialtyController } from "./http/professional-specialty.controller";
 import { SpecialtyController } from "./http/specialty.controller";
+import { ServiceOfferController } from "./http/service-offer.controller";
 import { createProfessionalSpecialtyRouter } from "./http/professional-specialty.routes";
+import { createServiceOfferRouter } from "./http/service-offer.routes";
 
 export interface CatalogDependencies {
   /** Implementación del port de verificación de afiliación activa (Profiles). */
@@ -39,6 +48,10 @@ export interface CatalogDependencies {
   professionalProfilePort: ProfessionalProfilePort;
   /** Adaptador para notificaciones de Catalog. */
   notifications: CatalogNotificationPort;
+  /** Adaptador de contexto de escritura (perfil, membresía y afiliación) — D4. */
+  offerWriteContext: OfferWriteContextPort;
+  /** Adaptador de lectura de citas para la política de inmutabilidad/desactivación — D5. */
+  offerAppointmentPolicy: OfferAppointmentPolicyPort;
 }
 
 export function createCatalogCompositionRoot(deps: CatalogDependencies) {
@@ -79,6 +92,39 @@ export function createCatalogCompositionRoot(deps: CatalogDependencies) {
       transactionRunner
     );
 
+  // Casos de uso de ciclo de vida de la oferta (Misión 4)
+  const serviceOfferRepo = new PrismaServiceOfferRepository();
+
+  const createServiceOfferUseCase = new CreateServiceOfferUseCase(
+    serviceOfferRepo,
+    specialtyRepo,
+    professionalSpecialtyRepo,
+    deps.offerWriteContext,
+    transactionRunner
+  );
+
+  const updateServiceOfferUseCase = new UpdateServiceOfferUseCase(
+    serviceOfferRepo,
+    specialtyRepo,
+    professionalSpecialtyRepo,
+    deps.offerWriteContext,
+    deps.offerAppointmentPolicy,
+    transactionRunner
+  );
+
+  const deactivateServiceOfferUseCase = new DeactivateServiceOfferUseCase(
+    serviceOfferRepo,
+    deps.offerWriteContext,
+    deps.offerAppointmentPolicy,
+    transactionRunner
+  );
+
+  const listProfessionalPublicOffersUseCase =
+    new ListProfessionalPublicOffersUseCase(
+      deps.affiliationChecker,
+      serviceOfferRepo
+    );
+
   // Controladores HTTP
   const specialtyController = new SpecialtyController({
     createSpecialtyUseCase,
@@ -100,12 +146,24 @@ export function createCatalogCompositionRoot(deps: CatalogDependencies) {
     professionalSpecialtyController
   );
 
+  const serviceOfferController = new ServiceOfferController({
+    createServiceOfferUseCase,
+    updateServiceOfferUseCase,
+    deactivateServiceOfferUseCase,
+    listProfessionalPublicOffersUseCase,
+  });
+
+  const serviceOfferRouter = createServiceOfferRouter(serviceOfferController);
+
   return {
     specialtyRepo,
     professionalSpecialtyRepo,
+    serviceOfferRepo,
     specialtyController,
     professionalSpecialtyController,
     professionalSpecialtyRouter,
+    serviceOfferController,
+    serviceOfferRouter,
     useCases: {
       createSpecialtyUseCase,
       listActiveSpecialtiesUseCase,
@@ -117,6 +175,10 @@ export function createCatalogCompositionRoot(deps: CatalogDependencies) {
       listProfessionalPublicSpecialtiesUseCase,
       requestProfessionalSpecialtyUseCase,
       reviewProfessionalSpecialtyUseCase,
+      createServiceOfferUseCase,
+      updateServiceOfferUseCase,
+      deactivateServiceOfferUseCase,
+      listProfessionalPublicOffersUseCase,
     },
   };
 }

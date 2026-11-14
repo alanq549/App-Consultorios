@@ -75,4 +75,54 @@ export class ProfessionalProfileNotFoundError extends CatalogDomainError {
   }
 }
 
+/// ─── Ofertas reservables por afiliación (D3, D4, D5, D7) ───────────────────────
+
+/// Operación de escritura denegada por D4: el actor no es el titular autorizado
+/// (perfil no aprobado, membresía/afiliación inactiva o especialidad no aprobada).
+export class UnauthorizedAffiliationActionError extends CatalogDomainError {
+  constructor(message = "No autorizado para operar sobre la oferta en este consultorio") {
+    super(message);
+  }
+}
+
+/// La oferta referenciada no existe o no pertenece a la afiliación/tenant del actor.
+export class ServiceOfferNotFoundError extends CatalogDomainError {
+  constructor(message = "Oferta no encontrada") {
+    super(message);
+  }
+}
+
+/// Violación del invariante de unicidad `@@unique([affiliationId, name])` (D3).
+export class ServiceOfferNameAlreadyExistsError extends CatalogDomainError {
+  constructor(message = "Ya existe una oferta con ese nombre en este consultorio") {
+    super(message);
+  }
+}
+
+/// Datos de oferta inválidos (duración múltiplo de 15 dentro de rango, precio > 0).
+export class InvalidServiceOfferDataError extends CatalogDomainError {
+  constructor(message = "Datos de la oferta inválidos") {
+    super(message);
+  }
+}
+
+/// D5: términos contractuales (`price`, `durationMin`, `specialtyId`) inmutables si la oferta
+/// ya tiene cualquier cita asociada (histórica, presente o futura), hasta snapshots de Fase 7.
+export class ServiceImmutableTermsWithAppointmentsError extends CatalogDomainError {
+  constructor(
+    message = "No puedes modificar precio, duración o especialidad de una oferta con citas registradas",
+  ) {
+    super(message);
+  }
+}
+
+/// D5: la oferta tiene citas pendientes o confirmadas aún no concluidas (`endDateTime > now`).
+export class ServiceHasPendingAppointmentsError extends CatalogDomainError {
+  constructor(
+    message = "No puedes desactivar una oferta con citas pendientes o en curso",
+  ) {
+    super(message);
+  }
+}
+
 

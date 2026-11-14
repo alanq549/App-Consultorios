@@ -38,7 +38,7 @@ describe("Catálogo multi-tenant — servicios y especialidades del profesional"
     label: string,
     tenantId: number,
     affiliationStatus: "ACTIVE" | "SUSPENDED",
-  ): Promise<number> {
+  ): Promise<{ profileId: number; affiliationId: number }> {
     const user = await prisma.user.create({
       data: {
         email: `catalog-${label}-${suffix}@test.invalid`,
@@ -69,12 +69,13 @@ describe("Catálogo multi-tenant — servicios y especialidades del profesional"
     });
     affiliationIds.push(affiliation.id);
 
-    return profile.id;
+    return { profileId: profile.id, affiliationId: affiliation.id };
   }
 
-  /// Crea un servicio activo propiedad del perfil indicado.
+  /// Crea un servicio activo ligado a la afiliación indicada (D3).
   async function createService(
     profileId: number,
+    affiliationId: number,
     name: string,
   ): Promise<number> {
     const service = await prisma.service.create({
@@ -84,6 +85,7 @@ describe("Catálogo multi-tenant — servicios y especialidades del profesional"
         durationMin: 30,
         price: 250,
         profileId,
+        affiliationId,
         specialtyId,
       },
       select: { id: true },
@@ -132,15 +134,31 @@ describe("Catálogo multi-tenant — servicios y especialidades del profesional"
     ).id;
 
     // Profesional afiliado sólo al tenant A.
-    profileA = await createProfessional("a", tenantA, "ACTIVE");
+    const profA = await createProfessional("a", tenantA, "ACTIVE");
     // Profesional afiliado sólo al tenant B.
-    profileB = await createProfessional("b", tenantB, "ACTIVE");
+    const profB = await createProfessional("b", tenantB, "ACTIVE");
     // Profesional con afiliación suspendida en el tenant A.
-    profileSuspended = await createProfessional("suspendido", tenantA, "SUSPENDED");
+    const profSuspended = await createProfessional("suspendido", tenantA, "SUSPENDED");
 
-    serviceAId = await createService(profileA, `Consulta ${suffix}`);
-    await createService(profileB, `Consulta B ${suffix}`);
-    await createService(profileSuspended, `Consulta suspendida ${suffix}`);
+    profileA = profA.profileId;
+    profileB = profB.profileId;
+    profileSuspended = profSuspended.profileId;
+
+    serviceAId = await createService(
+      profA.profileId,
+      profA.affiliationId,
+      `Consulta ${suffix}`,
+    );
+    await createService(
+      profB.profileId,
+      profB.affiliationId,
+      `Consulta B ${suffix}`,
+    );
+    await createService(
+      profSuspended.profileId,
+      profSuspended.affiliationId,
+      `Consulta suspendida ${suffix}`,
+    );
 
     await prisma.professionalSpecialty.create({
       data: {

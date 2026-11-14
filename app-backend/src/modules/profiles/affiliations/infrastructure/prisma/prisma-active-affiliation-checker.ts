@@ -45,4 +45,30 @@ export class PrismaActiveAffiliationChecker implements ActiveAffiliationChecker 
 
     return affiliation !== null;
   }
+
+  /**
+   * Resuelve el ID de la afiliación ACTIVE del profesional en un tenant activo.
+   *
+   * @param {number} professionalProfileId - ID del perfil profesional.
+   * @param {number} tenantId - ID del tenant seleccionado en la petición.
+   * @returns {Promise<number | null>} El `id` de la afiliación ACTIVE, o `null` si no existe.
+   */
+  async findActiveAffiliationId(
+    professionalProfileId: number,
+    tenantId: number,
+  ): Promise<number | null> {
+    const affiliation = await this.prisma.professionalTenantAffiliation.findFirst({
+      where: {
+        professionalProfileId,
+        tenantId,
+        status: "ACTIVE",
+        tenant: {
+          is: { status: "ACTIVE" },
+        },
+      },
+      select: { id: true },
+    });
+
+    return affiliation?.id ?? null;
+  }
 }

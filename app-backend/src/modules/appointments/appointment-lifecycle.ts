@@ -7,22 +7,8 @@
 /// igual las citas de todos los tenants.
 
 import prisma from "@/shared/database/prisma";
+import { buildUTCDate } from "@/shared/time/appointment-datetime";
 import { NotificationService } from "../notifications/notifications.service";
-
-/// Construye el instante UTC real de una cita combinando su fecha (UTC) con los minutos del día.
-function buildUTCDate(baseDate: Date, minutes: number): Date {
-  const utc = Date.UTC(
-    baseDate.getUTCFullYear(),
-    baseDate.getUTCMonth(),
-    baseDate.getUTCDate(),
-    0,
-    minutes,
-    0,
-    0,
-  );
-
-  return new Date(utc);
-}
 
 /// Procesa el ciclo de vida de las citas pendientes y confirmadas:
 /// - `PENDING` cuya hora de inicio ya pasó y nunca se confirmó → `CANCELLED`.

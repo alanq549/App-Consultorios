@@ -7,13 +7,13 @@ import userRoutes from "@/modules/users/users.routes";
 import configRoutes from "@/modules/config/config.routes";
 import AppointmentRoutes from "@/modules/appointments/appointments.routes";
 import { errorHandler } from "./shared/http/errorHandler";
-import serviceRoutes from "./modules/services/service.routes";
 import schedulesRoutes from "./modules/schedule/schedule.routes";
 import notificationRoutes from "@/modules/notifications/notifications.routes";
 import {
   adminRouter,
   professionalProfileRouter,
   specialtyRouter,
+  serviceOfferRouter,
 } from "@/app.wiring";
 import ReviewsRoutes from "@/modules/reviews/reviews.routes";
 import tenancyRoutes from "@/modules/tenancy/http/tenancy.routes";
@@ -57,7 +57,7 @@ app.use("/api/users", userRoutes);
 app.use("/api/config", configRoutes);
 app.use("/api/appointments", AppointmentRoutes);
 app.use("/api/professionals", professionalProfileRouter);
-app.use("/api/services", serviceRoutes);
+app.use("/api/services", serviceOfferRouter);
 app.use("/api/schedules", schedulesRoutes);
 app.use("/api/notifications", notificationRoutes);
 app.use("/api/reviews", ReviewsRoutes);

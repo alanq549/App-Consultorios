@@ -12,11 +12,12 @@
 /// 5. Reserva de invitado: `POST /create-guest` respeta el aislamiento (400 sin selector, 404 si el
 ///    profesional no está afiliado) y procesa una fecha válida en formato calendario `YYYY-MM-DD`.
 
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import request from "supertest";
 import prisma from "@/shared/database/prisma";
 import app from "@/app";
 import { JwtAccessTokenService } from "@/modules/identity/infrastructure/jwt-access-token-service";
+import { NotificationService } from "@/modules/notifications/notifications.service";
 
 const suffix = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
 
@@ -348,6 +349,44 @@ describe("Citas multi-tenant — reserva y disponibilidad", () => {
     expect(response.body.professional.id).toBe(profileA);
   });
 
+  it("devuelve 201 aunque falle la notificación post-commit (best-effort observable)", async () => {
+    // Fuerza el fallo de la notificación: la cita ya se habrá creado en el commit. Sin el manejo
+    // best-effort, el rechazo haría fallar la respuesta pese a existir la reserva.
+    const notifySpy = vi
+      .spyOn(NotificationService, "notifyAppointmentCreated")
+      .mockRejectedValueOnce(new Error("SMTP connection failed"));
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    try {
+      const response = await request(app)
+        .post("/api/appointments/create")
+        .set("Authorization", `Bearer ${clientToken}`)
+        .set(TENANT_HEADER, String(tenantA))
+        .send({
+          professionalProfileId: profileA,
+          serviceId: serviceA,
+          date: futureDate,
+          startMin: 780,
+        });
+
+      // La respuesta es exitosa: el fallo de la notificación no se propaga al cliente.
+      expect(response.status).toBe(201);
+      expect(response.body.professional.id).toBe(profileA);
+
+      // La cita quedó persistida pese al fallo de la notificación.
+      const persisted = await prisma.appointment.findFirst({
+        where: { professionalProfileId: profileA, startMin: 780 },
+        select: { id: true },
+      });
+      expect(persisted).not.toBeNull();
+      // El fallo se registra (best-effort observable), no se silencia.
+      expect(errorSpy).toHaveBeenCalled();
+    } finally {
+      notifySpy.mockRestore();
+      errorSpy.mockRestore();
+    }
+  });
+
   it("no permite al cliente reservar con un profesional de otro tenant", async () => {
     const response = await request(app)
       .post("/api/appointments/create")
@@ -402,5 +441,60 @@ describe("Citas multi-tenant — reserva y disponibilidad", () => {
       .set(TENANT_HEADER, String(tenantA));
 
     expect(response.status).toBe(404);
+  });
+
+  // -------------------- Cambio de estado (profesional) --------------------
+
+  it("conserva el cambio de estado aunque falle la notificación post-commit (best-effort observable)", async () => {
+    // Reserva futura que el profesional A confirmará.
+    const created = await request(app)
+      .post("/api/appointments/create")
+      .set("Authorization", `Bearer ${clientToken}`)
+      .set(TENANT_HEADER, String(tenantA))
+      .send({
+        professionalProfileId: profileA,
+        serviceId: serviceA,
+        date: futureDate,
+        startMin: 840,
+      });
+    expect(created.status).toBe(201);
+
+    const professionalProfile = await prisma.professionalProfile.findUnique({
+      where: { id: profileA },
+      select: { userId: true },
+    });
+    const professionalToken = tokenService.sign({
+      id: professionalProfile!.userId,
+      role: "PROFESSIONAL",
+    });
+
+    // Fuerza el fallo de la notificación: el cambio de estado ya se habrá persistido.
+    const notifySpy = vi
+      .spyOn(NotificationService, "notifyAppointmentConfirmed")
+      .mockRejectedValueOnce(new Error("SMTP connection failed"));
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    try {
+      const response = await request(app)
+        .patch(`/api/appointments/${created.body.id}/status`)
+        .set("Authorization", `Bearer ${professionalToken}`)
+        .send({ status: "CONFIRMED" });
+
+      // La respuesta es exitosa: el fallo de la notificación no se propaga al cliente.
+      expect(response.status).toBe(200);
+      expect(response.body.status).toBe("CONFIRMED");
+
+      // El cambio de estado quedó persistido pese al fallo de la notificación.
+      const persisted = await prisma.appointment.findUnique({
+        where: { id: created.body.id },
+        select: { status: true },
+      });
+      expect(persisted?.status).toBe("CONFIRMED");
+      // El fallo se registra (best-effort observable), no se silencia.
+      expect(errorSpy).toHaveBeenCalled();
+    } finally {
+      notifySpy.mockRestore();
+      errorSpy.mockRestore();
+    }
   });
 });

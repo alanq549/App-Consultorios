@@ -40,7 +40,51 @@ export {
   MaxPendingSpecialtiesExceededError,
   InvalidSpecialtyStatusError,
   ProfessionalProfileNotFoundError,
+  UnauthorizedAffiliationActionError,
+  ServiceOfferNotFoundError,
+  ServiceOfferNameAlreadyExistsError,
+  InvalidServiceOfferDataError,
+  ServiceImmutableTermsWithAppointmentsError,
+  ServiceHasPendingAppointmentsError,
 } from "./domain/catalog-errors";
+
+export {
+  ServiceOffer,
+  OFFER_SLOT_MINUTES,
+  OFFER_MAX_DURATION_MIN,
+} from "./domain/offer/service-offer.entity";
+
+export type {
+  ServiceOfferRepository,
+  CreateServiceOfferData,
+  UpdateServiceOfferData,
+} from "./domain/repositories/service-offer.repository";
+
+export type {
+  OfferWriteContext,
+  OfferWriteContextPort,
+} from "./application/ports/offer-write-context.port";
+
+export type { OfferAppointmentPolicyPort } from "./application/ports/offer-appointment-policy.port";
+
+export {
+  CreateServiceOfferSchema,
+  UpdateServiceOfferSchema,
+  toServiceOfferResponseDTO,
+} from "./application/dto/service-offer.dto";
+
+export type {
+  CreateServiceOfferDTO,
+  UpdateServiceOfferDTO,
+  ServiceOfferResponseDTO,
+} from "./application/dto/service-offer.dto";
+
+export { CreateServiceOfferUseCase } from "./application/use-cases/create-service-offer.use-case";
+export { UpdateServiceOfferUseCase } from "./application/use-cases/update-service-offer.use-case";
+export { DeactivateServiceOfferUseCase } from "./application/use-cases/deactivate-service-offer.use-case";
+export { ListProfessionalPublicOffersUseCase } from "./application/use-cases/list-professional-public-offers.use-case";
+export { ServiceOfferController } from "./http/service-offer.controller";
+export { createServiceOfferRouter } from "./http/service-offer.routes";
 
 export {
   ProfessionalSpecialty,

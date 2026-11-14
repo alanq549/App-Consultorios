@@ -1,5 +1,11 @@
 // appointments.service.ts
 import prisma from "@/shared/database/prisma";
+import { Prisma } from "@prisma/client";
+import {
+  PrismaTransactionRunner,
+  extractPrismaClientFromContext,
+} from "@/shared/database/prisma-transaction-context";
+import { lockServiceRowForUpdate } from "@/shared/database/service-row-lock";
 import {
   AppointmentResponseDTO,
   CreateAppointmentDTO,
@@ -9,11 +15,23 @@ import { generateAvailabilitySlots } from "./availability.util";
 /* import { appointmentQueue } from "./appointment.worker"; */
 import { NotificationService } from "../notifications/notifications.service";
 import { PrismaActiveAffiliationChecker } from "@/modules/profiles/affiliations/infrastructure/prisma/prisma-active-affiliation-checker";
+import {
+  buildUTCDate,
+  parseCalendarDateUTC,
+} from "@/shared/time/appointment-datetime";
 
 /// Alcance multi-tenant de las citas: `Appointment` no guarda `tenantId`, así que la pertenencia
 /// del profesional al tenant solicitado se deriva de su afiliación activa. Las superficies de
 /// reserva y disponibilidad sólo operan en tenants donde el profesional está afiliado ACTIVE.
 const activeAffiliationChecker = new PrismaActiveAffiliationChecker();
+
+/// Cliente transaccional para las reservas. La creación de una cita se ejecuta dentro de una
+/// transacción y toma el lock de fila de la oferta (`Service`) antes de leerla y de insertar,
+/// compartiendo el punto de serialización con el ciclo de vida de la oferta en Catalog (D5).
+const transactionRunner = new PrismaTransactionRunner();
+
+/// Cliente Prisma global o transaccional, según el contexto de ejecución.
+type Db = typeof prisma | Prisma.TransactionClient;
 
 export class AppointmentService {
   // Crear cita con clientProfile
@@ -33,72 +51,94 @@ export class AppointmentService {
       return null;
     }
 
-    const service = await this.getServiceById(
-      data.serviceId,
-      data.professionalProfileId,
-    );
+    /// D5: la reserva se ejecuta dentro de una transacción y toma el lock de fila de la oferta
+    /// ANTES de leerla y de insertar la cita. Así queda serializada con la comprobación y mutación
+    /// de términos en Catalog: una reserva concurrente no puede usar una duración leída antes de
+    /// un cambio de términos, ni asociarse a una oferta que se está desactivando.
+    const appointment = await transactionRunner.run(async (tx) => {
+      const db = extractPrismaClientFromContext(tx) as Db;
 
-    const endMin = data.startMin + service.durationMin;
-    const appointmentDate = new Date(data.date + "T00:00:00");
-    const now = new Date();
+      await lockServiceRowForUpdate(data.serviceId, tx);
 
-    const appointmentDateTime = new Date(appointmentDate);
-    appointmentDateTime.setMinutes(data.startMin);
+      const service = await this.getServiceById(
+        data.serviceId,
+        data.professionalProfileId,
+        db,
+      );
 
-    if (appointmentDateTime <= now) {
-      throw new Error("No puedes crear citas en el pasado");
-    }
+      const endMin = data.startMin + service.durationMin;
+      // PRE-D5: la fecha calendario se persiste siempre como medianoche UTC, independiente de la
+      // zona horaria del servidor, y el instante se combina en UTC.
+      const appointmentDate = parseCalendarDateUTC(data.date);
+      const now = new Date();
 
-    await this.validateSchedule(
-      data.professionalProfileId,
-      appointmentDate,
-      data.startMin,
-      endMin,
-    );
+      const appointmentDateTime = buildUTCDate(appointmentDate, data.startMin);
 
-    await this.validateOverlap(
-      data.professionalProfileId,
-      appointmentDate,
-      data.startMin,
-      endMin,
-    );
+      if (appointmentDateTime <= now) {
+        throw new Error("No puedes crear citas en el pasado");
+      }
 
-    const appointment = await prisma.appointment.create({
-      data: {
-        clientProfileId,
-        professionalProfileId: data.professionalProfileId,
-        serviceId: data.serviceId,
-        date: appointmentDate,
-        startMin: data.startMin,
+      await this.validateSchedule(
+        data.professionalProfileId,
+        appointmentDate,
+        data.startMin,
         endMin,
-        notes: data.notes,
-      },
-      include: {
-        service: true,
-        professional: {
-          include: {
-            user: true,
-            specialties: {
-              where: { status: "APPROVED" },
-              include: { specialty: true },
+        db,
+      );
+
+      await this.validateOverlap(
+        data.professionalProfileId,
+        appointmentDate,
+        data.startMin,
+        endMin,
+        db,
+      );
+
+      return db.appointment.create({
+        data: {
+          clientProfileId,
+          professionalProfileId: data.professionalProfileId,
+          serviceId: data.serviceId,
+          date: appointmentDate,
+          startMin: data.startMin,
+          endMin,
+          notes: data.notes,
+        },
+        include: {
+          service: true,
+          professional: {
+            include: {
+              user: true,
+              specialties: {
+                where: { status: "APPROVED" },
+                include: { specialty: true },
+              },
             },
           },
+          clientProfile: { include: { user: true } },
         },
-        clientProfile: { include: { user: true } },
-      },
+      });
     });
 
-    if (!appointment.clientProfile) {
-      throw new Error(
-        "No se pudo crear la notificación: clientProfile faltante",
+    /// Best-effort observable: la notificación se ejecuta FUERA de la transacción de persistencia
+    /// (tras el commit) y su fallo NUNCA debe propagarse. La cita ya quedó creada; si devolviéramos
+    /// error al cliente, un reintento podría generar una reserva duplicada.
+    try {
+      if (!appointment.clientProfile) {
+        throw new Error("clientProfile faltante para notificar la cita");
+      }
+
+      await NotificationService.notifyAppointmentCreated(
+        appointment.clientProfile.userId,
+        appointment.professional.userId,
+        appointment.id,
+      );
+    } catch (err) {
+      console.error(
+        `[Appointments] Falló la notificación de creación de la cita ${appointment.id}:`,
+        err,
       );
     }
-
-    await NotificationService.notifyAppointmentCreated(
-      appointment.clientProfile.userId,
-      appointment.professional.userId,
-      appointment.id,
-    );
 
     return this.mapToDTO(appointment);
   }
@@ -118,74 +158,85 @@ export class AppointmentService {
       return null;
     }
 
-    const service = await this.getServiceById(
-      data.serviceId,
-      professionalProfileId,
-    );
+    /// D5: mismo punto de serialización que el flujo regular — lock de fila de la oferta dentro
+    /// de una transacción antes de leer la oferta e insertar la cita.
+    const appointment = await transactionRunner.run(async (tx) => {
+      const db = extractPrismaClientFromContext(tx) as Db;
 
-    const endMin = data.startMin + service.durationMin;
-    const appointmentDate = new Date(data.date + "T00:00:00Z");
-    const now = new Date();
+      await lockServiceRowForUpdate(data.serviceId, tx);
 
-    const appointmentDateTime = new Date(appointmentDate);
-    appointmentDateTime.setMinutes(data.startMin);
-
-    if (appointmentDateTime <= now) {
-      throw new Error("No puedes crear citas en el pasado");
-    }
-
-    await this.validateSchedule(
-      professionalProfileId,
-      appointmentDate,
-      data.startMin,
-      endMin,
-    );
-
-    await this.validateOverlap(
-      professionalProfileId,
-      appointmentDate,
-      data.startMin,
-      endMin,
-    );
-
-    // Buscar o crear guest
-    let guest = await prisma.guestClient.findFirst({
-      where: { email: data.guestEmail || undefined, name: data.guestName },
-    });
-
-    if (!guest) {
-      guest = await prisma.guestClient.create({
-        data: {
-          name: data.guestName,
-          email: data.guestEmail,
-          phone: data.guestPhone,
-        },
-      });
-    }
-
-    const appointment = await prisma.appointment.create({
-      data: {
-        guestId: guest.id,
+      const service = await this.getServiceById(
+        data.serviceId,
         professionalProfileId,
-        serviceId: data.serviceId,
-        date: appointmentDate,
-        startMin: data.startMin,
+        db,
+      );
+
+      const endMin = data.startMin + service.durationMin;
+      // PRE-D5: mismo estándar que el flujo regular — fecha calendario en medianoche UTC.
+      const appointmentDate = parseCalendarDateUTC(data.date);
+      const now = new Date();
+
+      const appointmentDateTime = buildUTCDate(appointmentDate, data.startMin);
+
+      if (appointmentDateTime <= now) {
+        throw new Error("No puedes crear citas en el pasado");
+      }
+
+      await this.validateSchedule(
+        professionalProfileId,
+        appointmentDate,
+        data.startMin,
         endMin,
-        notes: data.notes,
-      },
-      include: {
-        service: true,
-        professional: {
-          include: {
-            user: true,
-            specialties: {
-              where: { status: "APPROVED" },
-              include: { specialty: true },
+        db,
+      );
+
+      await this.validateOverlap(
+        professionalProfileId,
+        appointmentDate,
+        data.startMin,
+        endMin,
+        db,
+      );
+
+      // Buscar o crear guest
+      let guest = await db.guestClient.findFirst({
+        where: { email: data.guestEmail || undefined, name: data.guestName },
+      });
+
+      if (!guest) {
+        guest = await db.guestClient.create({
+          data: {
+            name: data.guestName,
+            email: data.guestEmail,
+            phone: data.guestPhone,
+          },
+        });
+      }
+
+      return db.appointment.create({
+        data: {
+          guestId: guest.id,
+          professionalProfileId,
+          serviceId: data.serviceId,
+          date: appointmentDate,
+          startMin: data.startMin,
+          endMin,
+          notes: data.notes,
+        },
+        include: {
+          service: true,
+          professional: {
+            include: {
+              user: true,
+              specialties: {
+                where: { status: "APPROVED" },
+                include: { specialty: true },
+              },
             },
           },
+          guest: true,
         },
-        guest: true,
-      },
+      });
     });
 
     return this.mapToDTO(appointment, true);
@@ -237,14 +288,8 @@ export class AppointmentService {
     }
 
     if (status === "CONFIRMED") {
-      const base = new Date(appointment.date);
-      const fullDate = new Date(
-        base.getFullYear(),
-        base.getMonth(),
-        base.getDate(),
-        Math.floor(appointment.startMin / 60),
-        appointment.startMin % 60,
-      );
+      // PRE-D5: el instante se reconstruye en UTC, igual que en la creación de la cita.
+      const fullDate = buildUTCDate(appointment.date, appointment.startMin);
 
       if (fullDate < new Date())
         throw new Error("No se puede confirmar una cita pasada");
@@ -279,19 +324,29 @@ export class AppointmentService {
 
     if (!updated) throw new Error("Error inesperado");
 
+    /// Best-effort observable: las notificaciones de cambio de estado ocurren DESPUÉS de persistir
+    /// el `update` y su fallo NUNCA debe propagarse. El cambio de estado ya quedó confirmado; si
+    /// devolviéramos error al cliente, un reintento operaría sobre un estado ya aplicado.
     if (updated.clientProfile) {
-      if (status === "CONFIRMED") {
-        await NotificationService.notifyAppointmentConfirmed(
-          updated.clientProfile.userId,
-          updated.professional.userId,
-          updated.id,
-        );
-      } else if (status === "CANCELLED") {
-        await NotificationService.notifyAppointmentCancelled(
-          updated.clientProfile.userId,
-          updated.professional.userId,
-          updated.id,
-          "PROFESSIONAL",
+      try {
+        if (status === "CONFIRMED") {
+          await NotificationService.notifyAppointmentConfirmed(
+            updated.clientProfile.userId,
+            updated.professional.userId,
+            updated.id,
+          );
+        } else if (status === "CANCELLED") {
+          await NotificationService.notifyAppointmentCancelled(
+            updated.clientProfile.userId,
+            updated.professional.userId,
+            updated.id,
+            "PROFESSIONAL",
+          );
+        }
+      } catch (err) {
+        console.error(
+          `[Appointments] Falló la notificación de cambio de estado (${status}) de la cita ${updated.id}:`,
+          err,
         );
       }
     }
@@ -353,18 +408,10 @@ export class AppointmentService {
 
     const now = new Date();
 
-    // Filtrar solo citas que todavía no pasaron
-    const upcoming = appointments.filter((appt) => {
-      const base = new Date(appt.date);
-      const fullDate = new Date(
-        base.getFullYear(),
-        base.getMonth(),
-        base.getDate(),
-        Math.floor(appt.startMin / 60),
-        appt.startMin % 60,
-      );
-      return fullDate >= now;
-    });
+    // Filtrar solo citas que todavía no pasaron (instante reconstruido en UTC — PRE-D5)
+    const upcoming = appointments.filter(
+      (appt) => buildUTCDate(appt.date, appt.startMin) >= now,
+    );
 
     // Mapear usando el helper central para mantener consistencia
     return upcoming.map((appt) => this.mapToDTO(appt, !!appt.guest));
@@ -481,8 +528,12 @@ export class AppointmentService {
   // 🔒 Helpers privados
   // -----------------------------
 
-  private static async getServiceById(serviceId: number, profileId: number) {
-    const service = await prisma.service.findFirst({
+  private static async getServiceById(
+    serviceId: number,
+    profileId: number,
+    db: Db = prisma,
+  ) {
+    const service = await db.service.findFirst({
       where: { id: serviceId, profileId, isActive: true },
     });
     if (!service) throw new Error("Servicio no pertenece al profesional");
@@ -494,9 +545,10 @@ export class AppointmentService {
     date: Date,
     startMin: number,
     endMin: number,
+    db: Db = prisma,
   ) {
     const dayOfWeek = date.getUTCDay() === 0 ? 7 : date.getUTCDay();
-    const schedule = await prisma.schedule.findFirst({
+    const schedule = await db.schedule.findFirst({
       where: {
         profileId: professionalProfileId,
         dayOfWeek,
@@ -513,8 +565,9 @@ export class AppointmentService {
     date: Date,
     startMin: number,
     endMin: number,
+    db: Db = prisma,
   ) {
-    const overlap = await prisma.appointment.findFirst({
+    const overlap = await db.appointment.findFirst({
       where: {
         professionalProfileId,
         date,

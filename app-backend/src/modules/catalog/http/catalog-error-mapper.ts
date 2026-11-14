@@ -15,6 +15,12 @@ import {
   MaxPendingSpecialtiesExceededError,
   InvalidSpecialtyStatusError,
   InvalidSpecialtyTransitionError,
+  UnauthorizedAffiliationActionError,
+  ServiceOfferNotFoundError,
+  ServiceOfferNameAlreadyExistsError,
+  InvalidServiceOfferDataError,
+  ServiceImmutableTermsWithAppointmentsError,
+  ServiceHasPendingAppointmentsError,
 } from "../domain/catalog-errors";
 
 export function mapCatalogErrorToHttp(error: unknown): Error {
@@ -30,12 +36,29 @@ export function mapCatalogErrorToHttp(error: unknown): Error {
     return new AppError(error.message, 404);
   }
 
+  /// Las ofertas de otra afiliación/tenant son indistinguibles de una inexistente (404 uniforme).
+  if (error instanceof ServiceOfferNotFoundError) {
+    return new AppError(error.message, 404);
+  }
+
   if (error instanceof DuplicateSpecialtyError) {
     return new AppError(error.message, 409);
   }
 
   if (error instanceof ProfessionalSpecialtyAlreadyExistsError) {
     return new AppError(error.message, 409);
+  }
+
+  if (error instanceof ServiceOfferNameAlreadyExistsError) {
+    return new AppError(error.message, 409);
+  }
+
+  if (error instanceof UnauthorizedSpecialtyOperationError) {
+    return new AppError(error.message, 403);
+  }
+
+  if (error instanceof UnauthorizedAffiliationActionError) {
+    return new AppError(error.message, 403);
   }
 
   if (error instanceof SpecialtyInactiveError) {
@@ -46,8 +69,16 @@ export function mapCatalogErrorToHttp(error: unknown): Error {
     return new AppError(error.message, 400);
   }
 
-  if (error instanceof UnauthorizedSpecialtyOperationError) {
-    return new AppError(error.message, 403);
+  if (error instanceof InvalidServiceOfferDataError) {
+    return new AppError(error.message, 400);
+  }
+
+  if (error instanceof ServiceImmutableTermsWithAppointmentsError) {
+    return new AppError(error.message, 400);
+  }
+
+  if (error instanceof ServiceHasPendingAppointmentsError) {
+    return new AppError(error.message, 400);
   }
 
   if (error instanceof CatalogDomainError) {

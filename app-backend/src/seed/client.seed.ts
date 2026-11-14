@@ -4,6 +4,23 @@ import { AppointmentStatus, PaymentStatus } from "@prisma/client"; // enums
 import bcrypt from "bcrypt";
 import { DEFAULT_AVATAR } from "@/core/config/media";
 
+/// PRE-D5: la fecha calendario de una cita se persiste siempre como medianoche UTC,
+/// independientemente de la zona horaria del servidor.
+function utcMidnightInDays(days: number): Date {
+  const target = new Date(Date.now() + days * 86_400_000);
+  return new Date(
+    Date.UTC(
+      target.getUTCFullYear(),
+      target.getUTCMonth(),
+      target.getUTCDate(),
+      0,
+      0,
+      0,
+      0,
+    ),
+  );
+}
+
 type SeedAppointment = {
   serviceName: string;
   professionalEmail: string;
@@ -37,7 +54,7 @@ export async function seedClients() {
         {
           serviceName: "Consulta Cardiológica",
           professionalEmail: "juan.cardiologo@test.com",
-          date: new Date(Date.now() + 86400000),
+          date: utcMidnightInDays(1),
           startMin: 600,
           endMin: 660,
           status: AppointmentStatus.CONFIRMED,
@@ -56,7 +73,7 @@ export async function seedClients() {
         {
           serviceName: "Consulta Pediátrica",
           professionalEmail: "ana.pediatra@test.com",
-          date: new Date(Date.now() + 172800000),
+          date: utcMidnightInDays(2),
           startMin: 540,
           endMin: 585,
           status: AppointmentStatus.PENDING,
