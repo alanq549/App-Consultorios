@@ -35,7 +35,8 @@ export type AppointmentResponseDTO = {
     name: string;
     description: string;
     durationMin: number;
-    price: number;
+    /// D7: precio en string decimal de exactamente dos posiciones (ej. `"250.00"`), nunca `number`.
+    price: string;
   };
   professional: {
     id: number;

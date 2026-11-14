@@ -10,6 +10,7 @@ import { PrismaSpecialtyRepository } from "./infrastructure/prisma/prisma-specia
 import { PrismaProfessionalSpecialtyRepository } from "./infrastructure/prisma/prisma-professional-specialty-repository";
 import { PrismaProfessionalPublicSpecialtyQuery } from "./infrastructure/prisma/prisma-professional-public-specialty-query";
 import { PrismaServiceOfferRepository } from "./infrastructure/prisma/prisma-service-offer-repository";
+import { PrismaCatalogReader } from "./infrastructure/prisma/prisma-catalog-reader";
 import { ActiveAffiliationCheckerPort } from "./application/ports/active-affiliation-checker.port";
 import { ProfileSuspensionPort } from "./application/ports/profile-suspension.port";
 import { ProfessionalProfilePort } from "./application/ports/professional-profile-lookup.port";
@@ -59,6 +60,8 @@ export function createCatalogCompositionRoot(deps: CatalogDependencies) {
   const professionalSpecialtyRepo = new PrismaProfessionalSpecialtyRepository();
   const professionalSpecialtyQuery = new PrismaProfessionalPublicSpecialtyQuery();
   const transactionRunner = new PrismaTransactionRunner();
+  // Adaptador de lectura reservable para Appointments (Misión 5). No depende de otros puertos.
+  const catalogReader = new PrismaCatalogReader();
 
   // Casos de uso de taxonomía (Misión 1)
   const createSpecialtyUseCase = new CreateSpecialtyUseCase(specialtyRepo);
@@ -159,6 +162,7 @@ export function createCatalogCompositionRoot(deps: CatalogDependencies) {
     specialtyRepo,
     professionalSpecialtyRepo,
     serviceOfferRepo,
+    catalogReader,
     specialtyController,
     professionalSpecialtyController,
     professionalSpecialtyRouter,

@@ -68,6 +68,15 @@ export type {
 export type { OfferAppointmentPolicyPort } from "./application/ports/offer-appointment-policy.port";
 
 export {
+  BOOKABLE_SERVICE_CURRENCY,
+} from "./application/ports/catalog-reader.port";
+
+export type {
+  CatalogReader,
+  BookableService,
+} from "./application/ports/catalog-reader.port";
+
+export {
   CreateServiceOfferSchema,
   UpdateServiceOfferSchema,
   toServiceOfferResponseDTO,

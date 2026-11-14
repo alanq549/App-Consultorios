@@ -1,6 +1,5 @@
 // appointments.service.ts
 import prisma from "@/shared/database/prisma";
-import { Prisma } from "@prisma/client";
 import {
   PrismaTransactionRunner,
   extractPrismaClientFromContext,
@@ -14,16 +13,11 @@ import {
 import { generateAvailabilitySlots } from "./availability.util";
 /* import { appointmentQueue } from "./appointment.worker"; */
 import { NotificationService } from "../notifications/notifications.service";
-import { PrismaActiveAffiliationChecker } from "@/modules/profiles/affiliations/infrastructure/prisma/prisma-active-affiliation-checker";
+import type { BookableService, CatalogReader } from "@/modules/catalog";
 import {
   buildUTCDate,
   parseCalendarDateUTC,
 } from "@/shared/time/appointment-datetime";
-
-/// Alcance multi-tenant de las citas: `Appointment` no guarda `tenantId`, así que la pertenencia
-/// del profesional al tenant solicitado se deriva de su afiliación activa. Las superficies de
-/// reserva y disponibilidad sólo operan en tenants donde el profesional está afiliado ACTIVE.
-const activeAffiliationChecker = new PrismaActiveAffiliationChecker();
 
 /// Cliente transaccional para las reservas. La creación de una cita se ejecuta dentro de una
 /// transacción y toma el lock de fila de la oferta (`Service`) antes de leerla y de insertar,
@@ -31,40 +25,65 @@ const activeAffiliationChecker = new PrismaActiveAffiliationChecker();
 const transactionRunner = new PrismaTransactionRunner();
 
 /// Cliente Prisma global o transaccional, según el contexto de ejecución.
-type Db = typeof prisma | Prisma.TransactionClient;
+type Db = ReturnType<typeof extractPrismaClientFromContext>;
+
+/// Dependencias inyectadas desde el Composition Root (src/app.wiring.ts).
+/// Appointments no importa el repositorio Prisma del catálogo: consume el contrato `CatalogReader`.
+export interface AppointmentServiceDependencies {
+  catalogReader: CatalogReader;
+}
 
 export class AppointmentService {
+  private static dependencies?: AppointmentServiceDependencies;
+
+  /// Inyecta el contrato de lectura reservable de Catalog sin acoplar Appointments a su
+  /// infraestructura de persistencia.
+  static injectDependencies(deps: AppointmentServiceDependencies): void {
+    AppointmentService.dependencies = deps;
+  }
+
+  private static getCatalogReader(): CatalogReader {
+    const reader = AppointmentService.dependencies?.catalogReader;
+    if (!reader) {
+      throw new Error(
+        "[AppointmentService] CatalogReader no ha sido inyectado. " +
+          "Asegúrese de conectar las dependencias desde el composition root (src/app.wiring.ts).",
+      );
+    }
+    return reader;
+  }
+
   // Crear cita con clientProfile
   static async create(
     clientProfileId: number,
     data: CreateAppointmentDTO,
     tenantId: number,
   ): Promise<AppointmentResponseDTO | null> {
-    // El profesional debe tener afiliación activa en el tenant seleccionado; si no, se trata
-    // como no encontrado para no revelar la existencia del perfil.
-    const isAffiliated = await activeAffiliationChecker.hasActiveAffiliation(
-      data.professionalProfileId,
-      tenantId,
-    );
-
-    if (!isAffiliated) {
-      return null;
-    }
+    const catalogReader = AppointmentService.getCatalogReader();
 
     /// D5: la reserva se ejecuta dentro de una transacción y toma el lock de fila de la oferta
     /// ANTES de leerla y de insertar la cita. Así queda serializada con la comprobación y mutación
     /// de términos en Catalog: una reserva concurrente no puede usar una duración leída antes de
     /// un cambio de términos, ni asociarse a una oferta que se está desactivando.
-    const appointment = await transactionRunner.run(async (tx) => {
+    ///
+    /// La lectura reservable se delega a `CatalogReader`: devuelve `null` —y la reserva responde
+    /// 404 uniforme— cuando el profesional no está afiliado ACTIVE al tenant, la oferta es de otro
+    /// profesional, está inactiva o su especialidad fue desactivada (D3/D6).
+    const result = await transactionRunner.run(async (tx) => {
       const db = extractPrismaClientFromContext(tx) as Db;
 
       await lockServiceRowForUpdate(data.serviceId, tx);
 
-      const service = await this.getServiceById(
+      const service = await catalogReader.getBookableService(
         data.serviceId,
         data.professionalProfileId,
-        db,
+        tenantId,
+        tx,
       );
+
+      if (!service) {
+        return null;
+      }
 
       const endMin = data.startMin + service.durationMin;
       // PRE-D5: la fecha calendario se persiste siempre como medianoche UTC, independiente de la
@@ -94,7 +113,10 @@ export class AppointmentService {
         db,
       );
 
-      return db.appointment.create({
+      /// Misión 5: la oferta ya se resolvió vía `CatalogReader`, por lo que este flujo NO carga la
+      /// relación Prisma `appointment.service`; la respuesta se arma con el snapshot del contrato
+      /// (D7), evitando acoplar Appointments a la tabla de catálogo.
+      const created = await db.appointment.create({
         data: {
           clientProfileId,
           professionalProfileId: data.professionalProfileId,
@@ -105,7 +127,6 @@ export class AppointmentService {
           notes: data.notes,
         },
         include: {
-          service: true,
           professional: {
             include: {
               user: true,
@@ -118,7 +139,17 @@ export class AppointmentService {
           clientProfile: { include: { user: true } },
         },
       });
+
+      return { appointment: created, service };
     });
+
+    // El profesional no ofrece una oferta reservable en el tenant seleccionado: respuesta
+    // uniforme de no encontrado (no se revela la existencia del perfil ni de la oferta).
+    if (!result) {
+      return null;
+    }
+
+    const { appointment, service } = result;
 
     /// Best-effort observable: la notificación se ejecuta FUERA de la transacción de persistencia
     /// (tras el commit) y su fallo NUNCA debe propagarse. La cita ya quedó creada; si devolviéramos
@@ -140,7 +171,7 @@ export class AppointmentService {
       );
     }
 
-    return this.mapToDTO(appointment);
+    return this.mapToDTO(appointment, false, service);
   }
 
   // Crear cita para guest
@@ -149,27 +180,28 @@ export class AppointmentService {
     data: CreateGuestAppointmentDTO,
     tenantId: number,
   ): Promise<AppointmentResponseDTO | null> {
-    const isAffiliated = await activeAffiliationChecker.hasActiveAffiliation(
-      professionalProfileId,
-      tenantId,
-    );
-
-    if (!isAffiliated) {
-      return null;
-    }
+    const catalogReader = AppointmentService.getCatalogReader();
 
     /// D5: mismo punto de serialización que el flujo regular — lock de fila de la oferta dentro
     /// de una transacción antes de leer la oferta e insertar la cita.
-    const appointment = await transactionRunner.run(async (tx) => {
+    ///
+    /// La reservabilidad se resuelve con `CatalogReader` (tenant-aware): `null` si el profesional
+    /// no está afiliado ACTIVE al tenant, la oferta es de otro profesional o no es reservable.
+    const result = await transactionRunner.run(async (tx) => {
       const db = extractPrismaClientFromContext(tx) as Db;
 
       await lockServiceRowForUpdate(data.serviceId, tx);
 
-      const service = await this.getServiceById(
+      const service = await catalogReader.getBookableService(
         data.serviceId,
         professionalProfileId,
-        db,
+        tenantId,
+        tx,
       );
+
+      if (!service) {
+        return null;
+      }
 
       const endMin = data.startMin + service.durationMin;
       // PRE-D5: mismo estándar que el flujo regular — fecha calendario en medianoche UTC.
@@ -213,7 +245,9 @@ export class AppointmentService {
         });
       }
 
-      return db.appointment.create({
+      /// Misión 5: la oferta procede de `CatalogReader`, no de la relación Prisma; la respuesta se
+      /// arma con el snapshot del contrato (D7).
+      const created = await db.appointment.create({
         data: {
           guestId: guest.id,
           professionalProfileId,
@@ -224,7 +258,6 @@ export class AppointmentService {
           notes: data.notes,
         },
         include: {
-          service: true,
           professional: {
             include: {
               user: true,
@@ -237,9 +270,18 @@ export class AppointmentService {
           guest: true,
         },
       });
+
+      return { appointment: created, service };
     });
 
-    return this.mapToDTO(appointment, true);
+    // Oferta no reservable en el tenant seleccionado: 404 uniforme (sin revelar existencia).
+    if (!result) {
+      return null;
+    }
+
+    const { appointment, service } = result;
+
+    return this.mapToDTO(appointment, true, service);
   }
 
   // Actualizar estado por profesional
@@ -475,12 +517,17 @@ export class AppointmentService {
     endOfDay: Date,
     tenantId: number,
   ) {
-    const isAffiliated = await activeAffiliationChecker.hasActiveAffiliation(
+    const catalogReader = AppointmentService.getCatalogReader();
+
+    // La disponibilidad solo se expone para una oferta reservable en el tenant seleccionado.
+    // `null` → 404 uniforme (profesional no afiliado, oferta inactiva/de otro profesional, etc.).
+    const service = await catalogReader.getBookableService(
+      serviceId,
       professionalProfileId,
       tenantId,
     );
 
-    if (!isAffiliated) {
+    if (!service) {
       return null;
     }
 
@@ -488,7 +535,7 @@ export class AppointmentService {
 
     if (endOfDay <= now) return [];
 
-    const service = await this.getServiceById(serviceId, professionalProfileId);
+    const durationMin = service.durationMin;
     const jsDay = startOfDay.getUTCDay();
     const dayOfWeek = jsDay === 0 ? 7 : jsDay;
 
@@ -509,7 +556,7 @@ export class AppointmentService {
     const slots = generateAvailabilitySlots({
       schedules,
       appointments,
-      serviceDuration: service.durationMin,
+      serviceDuration: durationMin,
     });
 
     const isToday = startOfDay <= now && endOfDay > now;
@@ -527,18 +574,6 @@ export class AppointmentService {
   // -----------------------------
   // 🔒 Helpers privados
   // -----------------------------
-
-  private static async getServiceById(
-    serviceId: number,
-    profileId: number,
-    db: Db = prisma,
-  ) {
-    const service = await db.service.findFirst({
-      where: { id: serviceId, profileId, isActive: true },
-    });
-    if (!service) throw new Error("Servicio no pertenece al profesional");
-    return service;
-  }
 
   private static async validateSchedule(
     professionalProfileId: number,
@@ -582,9 +617,32 @@ export class AppointmentService {
   private static mapToDTO(
     appointment: any,
     isGuest = false,
+    /// Misión 5: snapshot de la oferta resuelta por `CatalogReader`. Los flujos de reserva lo
+    /// proporcionan para no depender de la relación Prisma `appointment.service`; los flujos de
+    /// lectura histórica lo omiten y derivan el bloque del `service` incluido.
+    serviceSnapshot?: BookableService,
   ): AppointmentResponseDTO {
     const specialty =
       appointment.professional.specialties?.[0]?.specialty || null;
+
+    /// D7: el precio se expone como string decimal de exactamente dos posiciones. Desde el
+    /// contrato es ya el valor exacto; desde el `Decimal(10,2)` se formatea sin aritmética de
+    /// punto flotante.
+    const service = serviceSnapshot
+      ? {
+          id: serviceSnapshot.id,
+          name: serviceSnapshot.name,
+          description: serviceSnapshot.description,
+          durationMin: serviceSnapshot.durationMin,
+          price: serviceSnapshot.price,
+        }
+      : {
+          id: appointment.service.id,
+          name: appointment.service.name,
+          description: appointment.service.description,
+          durationMin: appointment.service.durationMin,
+          price: appointment.service.price.toFixed(2),
+        };
 
     return {
       id: appointment.id,
@@ -593,13 +651,7 @@ export class AppointmentService {
       endMin: appointment.endMin,
       notes: appointment.notes,
       status: appointment.status,
-      service: {
-        id: appointment.service.id,
-        name: appointment.service.name,
-        description: appointment.service.description,
-        durationMin: appointment.service.durationMin,
-        price: Number(appointment.service.price),
-      },
+      service,
       professional: {
         id: appointment.professional.id,
         name: appointment.professional.name,

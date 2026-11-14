@@ -35,9 +35,13 @@ describe("Citas multi-tenant — reserva y disponibilidad", () => {
   let profileA: number;
   let profileB: number;
   let profileSuspended: number;
+  /// Profesional afiliado a DOS tenants. Su oferta pertenece a la afiliación del tenant A.
+  let dualProfileId: number;
 
   let serviceA: number;
   let serviceB: number;
+  /// Oferta del profesional dual, registrada bajo su afiliación con el tenant A.
+  let dualServiceId: number;
 
   let clientUserId: number;
   let clientToken: string;
@@ -52,11 +56,12 @@ describe("Citas multi-tenant — reserva y disponibilidad", () => {
   const guestIds: number[] = [];
 
   /// Siembra un profesional con perfil, afiliación y agenda semanal completa (todo día 08:00–18:00).
+  /// Devuelve el `profileId` y el `affiliationId` (D3) para vincular las ofertas reservables.
   async function createProfessional(
     label: string,
     tenantId: number,
     affiliationStatus: "ACTIVE" | "SUSPENDED",
-  ): Promise<number> {
+  ): Promise<{ profileId: number; affiliationId: number }> {
     const user = await prisma.user.create({
       data: {
         email: `appt-${label}-${suffix}@test.invalid`,
@@ -97,17 +102,24 @@ describe("Citas multi-tenant — reserva y disponibilidad", () => {
       })),
     });
 
-    return profile.id;
+    return { profileId: profile.id, affiliationId: affiliation.id };
   }
 
-  async function createService(profileId: number, name: string): Promise<number> {
+  /// Crea una oferta reservable ligada a la afiliación propietaria (D3).
+  async function createService(
+    profileId: number,
+    affiliationId: number,
+    name: string,
+  ): Promise<number> {
     const service = await prisma.service.create({
       data: {
         name,
         description: "Servicio de prueba",
         durationMin: 30,
-        price: 250,
+        // Precio no entero para verificar el formateo decimal exacto (D7) en la respuesta de reserva.
+        price: 250.5,
         profileId,
+        affiliationId,
         specialtyId,
       },
       select: { id: true },
@@ -148,12 +160,47 @@ describe("Citas multi-tenant — reserva y disponibilidad", () => {
       })
     ).id;
 
-    profileA = await createProfessional("a", tenantA, "ACTIVE");
-    profileB = await createProfessional("b", tenantB, "ACTIVE");
-    profileSuspended = await createProfessional("suspendido", tenantA, "SUSPENDED");
+    const professionalA = await createProfessional("a", tenantA, "ACTIVE");
+    const professionalB = await createProfessional("b", tenantB, "ACTIVE");
+    const professionalSuspended = await createProfessional(
+      "suspendido",
+      tenantA,
+      "SUSPENDED",
+    );
+    profileA = professionalA.profileId;
+    profileB = professionalB.profileId;
+    profileSuspended = professionalSuspended.profileId;
 
-    serviceA = await createService(profileA, `Servicio A ${suffix}`);
-    serviceB = await createService(profileB, `Servicio B ${suffix}`);
+    serviceA = await createService(
+      profileA,
+      professionalA.affiliationId,
+      `Servicio A ${suffix}`,
+    );
+    serviceB = await createService(
+      profileB,
+      professionalB.affiliationId,
+      `Servicio B ${suffix}`,
+    );
+
+    // Profesional afiliado a DOS tenants, con su oferta bajo la afiliación del tenant A. Permite
+    // verificar el aislamiento por oferta: aunque el profesional esté afiliado al tenant B, su
+    // oferta del tenant A no debe poder reservarse desde B.
+    const professionalDual = await createProfessional("dual", tenantA, "ACTIVE");
+    const dualAffiliationB = await prisma.professionalTenantAffiliation.create({
+      data: {
+        professionalProfileId: professionalDual.profileId,
+        tenantId: tenantB,
+        status: "ACTIVE",
+      },
+      select: { id: true },
+    });
+    affiliationIds.push(dualAffiliationB.id);
+    dualProfileId = professionalDual.profileId;
+    dualServiceId = await createService(
+      professionalDual.profileId,
+      professionalDual.affiliationId,
+      `Servicio Dual ${suffix}`,
+    );
 
     // Cliente global (ClientProfile no pertenece a un tenant).
     const clientUser = await prisma.user.create({
@@ -322,6 +369,14 @@ describe("Citas multi-tenant — reserva y disponibilidad", () => {
     expect(response.body.professional.id).toBe(profileA);
     expect(response.body.client?.name).toBe("Invitado de prueba");
 
+    // Misión 5/D7: el bloque `service` proviene del contrato `BookableService` (no de la relación
+    // Prisma `appointment.service`), con el precio como string decimal exacto, nunca `number`.
+    expect(response.body.service).toMatchObject({
+      id: serviceA,
+      durationMin: 30,
+      price: "250.50",
+    });
+
     // La cita de invitado queda persistida y asociada a un GuestClient.
     const guest = await prisma.guestClient.findFirst({
       where: { email: guestEmail },
@@ -347,6 +402,14 @@ describe("Citas multi-tenant — reserva y disponibilidad", () => {
 
     expect(response.status).toBe(201);
     expect(response.body.professional.id).toBe(profileA);
+
+    // Misión 5/D7: la reserva devuelve el `service` del contrato `CatalogReader` con el precio
+    // decimal exacto como string.
+    expect(response.body.service).toMatchObject({
+      id: serviceA,
+      durationMin: 30,
+      price: "250.50",
+    });
   });
 
   it("devuelve 201 aunque falle la notificación post-commit (best-effort observable)", async () => {
@@ -441,6 +504,40 @@ describe("Citas multi-tenant — reserva y disponibilidad", () => {
       .set(TENANT_HEADER, String(tenantA));
 
     expect(response.status).toBe(404);
+  });
+
+  // -------------------- Aislamiento por oferta (D3) --------------------
+
+  it("no permite reservar desde el tenant B una oferta que pertenece a la afiliación del tenant A aunque el profesional esté afiliado a ambos", async () => {
+    const response = await request(app)
+      .post("/api/appointments/create")
+      .set("Authorization", `Bearer ${clientToken}`)
+      .set(TENANT_HEADER, String(tenantB))
+      .send({
+        professionalProfileId: dualProfileId,
+        serviceId: dualServiceId,
+        date: futureDate,
+        startMin: 600,
+      });
+
+    // La oferta no es reservable en el tenant B: 404 uniforme sin revelar su existencia.
+    expect(response.status).toBe(404);
+  });
+
+  it("permite reservar la misma oferta desde el tenant propietario de la afiliación", async () => {
+    const response = await request(app)
+      .post("/api/appointments/create")
+      .set("Authorization", `Bearer ${clientToken}`)
+      .set(TENANT_HEADER, String(tenantA))
+      .send({
+        professionalProfileId: dualProfileId,
+        serviceId: dualServiceId,
+        date: futureDate,
+        startMin: 600,
+      });
+
+    expect(response.status).toBe(201);
+    expect(response.body.professional.id).toBe(dualProfileId);
   });
 
   // -------------------- Cambio de estado (profesional) --------------------

@@ -28,6 +28,7 @@ import { NotificationService } from "@/modules/notifications/notifications.servi
 import { createAdminRouter } from "@/modules/admin/admin.routes";
 import { createProfessionalProfileRouter } from "@/modules/users/professionalprofile/professionalprofile.routes";
 import { AuthService } from "@/modules/auth/auth.service";
+import { AppointmentService } from "@/modules/appointments/appointments.service";
 
 // ── 1. Infraestructura de Profiles consumida por Catalog ─────────────────────
 const affiliationChecker = new PrismaActiveAffiliationChecker();
@@ -118,3 +119,9 @@ export const professionalProfileRouter = createProfessionalProfileRouter({
 
 // ── 4. Inyección de dependencias desde Composition Root hacia módulos de negocio
 AuthService.injectDependencies({ catalogTaxonomy: catalogTaxonomyService });
+
+// Appointments consume el contrato `CatalogReader` de Catalog (Misión 5): lectura reservable
+// tipada y tenant-aware, sin importar el repositorio Prisma ni las tablas del catálogo.
+AppointmentService.injectDependencies({
+  catalogReader: catalogContainer.catalogReader,
+});

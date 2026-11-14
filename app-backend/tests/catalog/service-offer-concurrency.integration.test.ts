@@ -18,6 +18,7 @@ import { PrismaOfferAppointmentPolicy } from "@/modules/catalog/infrastructure/p
 import { PrismaSpecialtyRepository } from "@/modules/catalog/infrastructure/prisma/prisma-specialty-repository";
 import { PrismaProfessionalSpecialtyRepository } from "@/modules/catalog/infrastructure/prisma/prisma-professional-specialty-repository";
 import { PrismaProfessionalTenantContext } from "@/modules/profiles/infrastructure/prisma/prisma-professional-tenant-context";
+import { PrismaCatalogReader } from "@/modules/catalog/infrastructure/prisma/prisma-catalog-reader";
 import { PrismaTransactionRunner } from "@/shared/database/prisma-transaction-context";
 import { UpdateServiceOfferUseCase } from "@/modules/catalog/application/use-cases/update-service-offer.use-case";
 import { DeactivateServiceOfferUseCase } from "@/modules/catalog/application/use-cases/deactivate-service-offer.use-case";
@@ -72,6 +73,10 @@ describe("Integración Catalog–Appointments: serialización D5 de la oferta ba
   const specialtyIds: number[] = [];
 
   beforeAll(async () => {
+    // Misión 5: Appointments consume el contrato `CatalogReader` de Catalog; se inyecta aquí el
+    // adaptador Prisma como lo hace el composition root, para no depender de `app.wiring.ts`.
+    AppointmentService.injectDependencies({ catalogReader: new PrismaCatalogReader() });
+
     // Calienta la conexión a Neon: la primera invocación puede fallar si el endpoint está
     // suspendido, lo que provocaría un falso negativo en la siembra.
     for (let attempt = 0; attempt < 5; attempt++) {
