@@ -5,10 +5,10 @@ import LoginForm from "../components/LoginForm"
 import RegisterForm from "../components/RegisterForm"
 import { useAuthRedirect } from "@/hooks/auth/useAuthRedirect"
 
-export default function AuthPage() {
+export default function AuthPage({ initialMode = "login" }: { initialMode?: "login" | "register" }) {
   useAuthRedirect()
 
-  const [mode, setMode] = useState<"login" | "register">("login")
+  const [mode, setMode] = useState<"login" | "register">(initialMode)
 
   return (
     <div className="min-h-screen flex items-center justify-center 

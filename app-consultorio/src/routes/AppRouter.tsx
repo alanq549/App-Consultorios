@@ -1,8 +1,9 @@
 // src/routes/AppRouter.tsx
 import { Routes, Route, Navigate } from "react-router-dom";
-import Home from "../pages/Home";
+import { HomePage } from "@/features/public-site/pages/HomePage";
 import NotFound from "../pages/NotFound";
-import AuthPage from "@/features/auth/pages/auth";
+import { LoginPage } from "@/features/auth/pages/LoginPage";
+import { RegisterPage } from "@/features/auth/pages/RegisterPage";
 import VerifyPage from "@/features/auth/pages/VerifyAccount";
 import {ResetPasswordPage} from "@/features/auth/pages/ResetPasswordPage";
 import {ForgotPasswordPage} from "@/features/auth/pages/ForgotPassword";
@@ -40,10 +41,12 @@ import { AppLayout } from "@/layouts/AppLayout"; // base para app (theme, estilo
 export default function AppRouter() {
   return (
     <Routes>
-      <Route path="/" element={<Navigate to="/home" replace />} />
       {/* Rutas públicas */}
-      <Route path="/home" element={<Home />} />
-      <Route path="/auth" element={<AuthPage />} />
+      <Route path="/" element={<HomePage />} />
+      <Route path="/home" element={<Navigate to="/" replace />} />
+      <Route path="/auth" element={<Navigate to="/login" replace />} />
+      <Route path="/login" element={<LoginPage />} />
+      <Route path="/register" element={<RegisterPage />} />
       <Route path="/verify" element={<VerifyPage />} />
       <Route path="/reset-password" element={<ResetPasswordPage />} />
       <Route path="/forgot-password" element={<ForgotPasswordPage />} />
