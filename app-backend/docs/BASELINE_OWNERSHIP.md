@@ -25,7 +25,7 @@ No se modificó `src/`, `prisma/schema.prisma`, rutas ni contratos HTTP.
 - `src/modules/users/**`;
 - `src/modules/services/service.service.ts`;
 - `src/modules/schedule/schedule.service.ts`;
-- `src/modules/specialty/**`;
+- ~~`src/modules/specialty/**`~~ _(retirado en Fase 5 – Misión 7)_;
 - `src/modules/appointments/appointments.service.ts`;
 - `src/modules/appointments/appointment.worker.ts`;
 - `src/modules/reviews/reviews.service.ts`;

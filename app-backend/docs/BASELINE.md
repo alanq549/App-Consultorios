@@ -164,6 +164,8 @@ Los prefijos se registran en [src/app.ts](../src/app.ts):
 
 Existe [professionalSpecialty.routes.ts](../src/modules/specialty/ProfessionalSpecialty/professionalSpecialty.routes.ts), pero no se importa ni se monta en [src/app.ts](../src/app.ts).
 
+> **Actualización (Fase 5 – Misión 7, 2026-11-14).** El módulo `src/modules/specialty/` fue retirado por completo (incluidos `specialty.dto.ts`, `specialty.types.ts` y la facade `ProfessionalSpecialty.Service.ts`), y `src/modules/services/` ya no existe. Las referencias a estos archivos en este documento describen el estado inicial del refactor (baseline) y se conservan como evidencia histórica.
+
 
 
 Por tanto, sus rutas no deben contarse como endpoints activos independientes. Algunas operaciones equivalentes sÃ­ estÃ¡n expuestas mediante:

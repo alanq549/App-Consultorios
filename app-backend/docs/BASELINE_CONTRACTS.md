@@ -124,7 +124,7 @@ Archivos:
 
 - `src/modules/services/service.dto.ts`;
 - `src/modules/services/service.types.ts`;
-- `src/modules/specialty/specialty.dto.ts`;
+- ~~`src/modules/specialty/specialty.dto.ts`~~ _(retirado en Fase 5 – Misión 7; equivalente vivo en `@/modules/catalog/application/dto/specialty.dto`)_;
 - `src/modules/schedule/schedule.dto.ts`;
 - `src/modules/schedule/schedule.types.ts`.
 

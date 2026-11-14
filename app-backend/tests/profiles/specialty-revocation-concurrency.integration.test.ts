@@ -13,7 +13,7 @@ import { afterAll, describe, expect, it, vi } from "vitest";
 import prisma from "@/shared/database/prisma";
 import { PrismaProfessionalProfileRepository } from "@/modules/profiles/infrastructure/prisma/prisma-professional-profile-repository";
 import { PrismaCatalogSpecialtyChecker } from "@/modules/profiles/infrastructure/prisma/prisma-catalog-specialty-checker";
-import { ProfessionalSpecialtyService } from "@/modules/specialty/ProfessionalSpecialty/ProfessionalSpecialty.Service";
+import { catalogContainer } from "@/app.wiring";
 import { ProfileMissingSpecialtyError } from "@/modules/profiles/domain/profile-errors";
 
 vi.mock("@/modules/notifications/notifications.service", () => ({
@@ -559,11 +559,11 @@ describe("Integración Catalog–Profiles: Concurrencia y Row-level Locking (Pos
         },
       });
 
-      await ProfessionalSpecialtyService.setSpecialtyStatus(
-        rejectedProfile.id,
-        specialty1.id,
-        "REJECTED"
-      );
+      await catalogContainer.useCases.reviewProfessionalSpecialtyUseCase.execute({
+        professionalId: rejectedProfile.id,
+        specialtyId: specialty1.id,
+        status: "REJECTED",
+      });
 
       const profileAfterRevocation1 = await prisma.professionalProfile.findUnique({
         where: { id: rejectedProfile.id },
@@ -583,11 +583,11 @@ describe("Integración Catalog–Profiles: Concurrencia y Row-level Locking (Pos
         },
       });
 
-      await ProfessionalSpecialtyService.setSpecialtyStatus(
-        pendingProfile.id,
-        specialty2.id,
-        "REJECTED"
-      );
+      await catalogContainer.useCases.reviewProfessionalSpecialtyUseCase.execute({
+        professionalId: pendingProfile.id,
+        specialtyId: specialty2.id,
+        status: "REJECTED",
+      });
 
       const profileAfterRevocation2 = await prisma.professionalProfile.findUnique({
         where: { id: pendingProfile.id },

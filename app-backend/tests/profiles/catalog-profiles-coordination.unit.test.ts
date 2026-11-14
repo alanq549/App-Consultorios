@@ -2,7 +2,7 @@
 /// Pruebas unitarias de coordinación transaccional Catalog–Profiles y post-commit notifications (Fase 4 - D5).
 
 import { describe, expect, it, vi, beforeEach } from "vitest";
-import { ProfessionalSpecialtyService } from "@/modules/specialty/ProfessionalSpecialty/ProfessionalSpecialty.Service";
+import { catalogContainer } from "@/app.wiring";
 import { NotificationService } from "@/modules/notifications/notifications.service";
 import prisma from "@/shared/database/prisma";
 
@@ -30,12 +30,24 @@ vi.mock("@/modules/notifications/notifications.service", () => ({
   },
 }));
 
+/// Ruta canónica tras retirar la facade de compatibilidad (Misión 7).
+const setSpecialtyStatus = (
+  professionalId: number,
+  specialtyId: number,
+  status: "APPROVED" | "REJECTED"
+) =>
+  catalogContainer.useCases.reviewProfessionalSpecialtyUseCase.execute({
+    professionalId,
+    specialtyId,
+    status,
+  });
+
 describe("Coordinación Catalog–Profiles (Unit Tests - D5)", () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
 
-  describe("ProfessionalSpecialtyService.setSpecialtyStatus -> SuspendOnSpecialtyRevokedUseCase", () => {
+  describe("ReviewProfessionalSpecialtyUseCase -> SuspendOnSpecialtyRevokedUseCase", () => {
     it("conecta a Profiles dentro de la transacción de Catalog y suspende si el perfil es APPROVED y queda con 0 especialidades", async () => {
       const mockTx = {
         $queryRaw: vi.fn().mockResolvedValueOnce([
@@ -66,7 +78,7 @@ describe("Coordinación Catalog–Profiles (Unit Tests - D5)", () => {
         cb(mockTx)
       );
 
-      const result = await ProfessionalSpecialtyService.setSpecialtyStatus(
+      const result = await setSpecialtyStatus(
         10,
         1,
         "REJECTED"
@@ -87,7 +99,7 @@ describe("Coordinación Catalog–Profiles (Unit Tests - D5)", () => {
       expect(NotificationService.notifyProfileSuspended).toHaveBeenCalledWith(10);
     });
 
-    it("preserva el estado REJECTED (terminal) en la ruta activa de ProfessionalSpecialtyService", async () => {
+    it("preserva el estado REJECTED (terminal) en la ruta canónica de Catalog", async () => {
       const mockTx = {
         $queryRaw: vi.fn().mockResolvedValueOnce([
           { id: 15, verificationStatus: "REJECTED" },
@@ -114,7 +126,7 @@ describe("Coordinación Catalog–Profiles (Unit Tests - D5)", () => {
         cb(mockTx)
       );
 
-      const result = await ProfessionalSpecialtyService.setSpecialtyStatus(
+      const result = await setSpecialtyStatus(
         15,
         2,
         "REJECTED"
@@ -125,7 +137,7 @@ describe("Coordinación Catalog–Profiles (Unit Tests - D5)", () => {
       expect(mockTx.professionalProfile.update).not.toHaveBeenCalled();
     });
 
-    it("preserva el estado PENDING en la ruta activa de ProfessionalSpecialtyService", async () => {
+    it("preserva el estado PENDING en la ruta canónica de Catalog", async () => {
       const mockTx = {
         $queryRaw: vi.fn().mockResolvedValueOnce([
           { id: 16, verificationStatus: "PENDING" },
@@ -152,7 +164,7 @@ describe("Coordinación Catalog–Profiles (Unit Tests - D5)", () => {
         cb(mockTx)
       );
 
-      const result = await ProfessionalSpecialtyService.setSpecialtyStatus(
+      const result = await setSpecialtyStatus(
         16,
         3,
         "REJECTED"
@@ -191,7 +203,7 @@ describe("Coordinación Catalog–Profiles (Unit Tests - D5)", () => {
       );
 
       await expect(
-        ProfessionalSpecialtyService.setSpecialtyStatus(10, 1, "REJECTED")
+        setSpecialtyStatus(10, 1, "REJECTED")
       ).rejects.toThrow("DB Deadlock / Disk Error");
     });
 
@@ -229,7 +241,7 @@ describe("Coordinación Catalog–Profiles (Unit Tests - D5)", () => {
         new Error("SMTP Connection Timeout")
       );
 
-      const result = await ProfessionalSpecialtyService.setSpecialtyStatus(
+      const result = await setSpecialtyStatus(
         20,
         1,
         "APPROVED"

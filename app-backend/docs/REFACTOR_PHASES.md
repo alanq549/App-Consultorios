@@ -359,7 +359,7 @@ src/modules/profiles/
 
 El plano ejecutable se desglosa en misiones independientes de menos de 100 líneas en [FASE5_CATALOG/00-PLAN.md](FASE5_CATALOG/00-PLAN.md). La Misión 0 debe aprobar ownership y reglas de oferta/citas futuras antes de cambios de schema o backfill. Fase 4 ya aprobó Catalog como owner de `ProfessionalSpecialty` e implementó el port transaccional Profiles; Fase 5 debe integrarlo, no duplicarlo.
 
-**Estado de implementación (2026-11-14):** Misiones 0–6 implementadas y validadas localmente. La Misión 6 ([07-CATALOGO-PUBLICO.md](FASE5_CATALOG/07-CATALOGO-PUBLICO.md)) publica las proyecciones públicas con DTOs explícitos y aislamiento por tenant, con evidencia registrada y **pendiente de revisión independiente**. La Misión 7 (integración y retiro de legacy en [08-INTEGRACION-CIERRE.md](FASE5_CATALOG/08-INTEGRACION-CIERRE.md)) permanece **pendiente**.
+**Estado de implementación (2026-11-14):** Misiones 0–7 implementadas y validadas localmente. La Misión 6 ([07-CATALOGO-PUBLICO.md](FASE5_CATALOG/07-CATALOGO-PUBLICO.md)) publica las proyecciones públicas con DTOs explícitos y aislamiento por tenant. La Misión 7 ([08-INTEGRACION-CIERRE.md](FASE5_CATALOG/08-INTEGRACION-CIERRE.md)) retira el legacy `src/modules/specialty/`, confirma la ausencia de duplicación activa y registra las excepciones y riesgos de Fase 6/7. Ambas quedan **pendientes de revisión independiente**.
 
 ### Objetivo
 
