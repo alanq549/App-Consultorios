@@ -136,6 +136,10 @@ model ProfessionalTenantAffiliation {
   services            Service[]
 
   @@unique([professionalProfileId, tenantId])
+  /// Clave única redundante (id, professionalProfileId) requerida como destino de la FK
+  /// compuesta de `Service`, que garantiza que la oferta solo referencie una afiliación del
+  /// **mismo** profesional (garantía central de D3).
+  @@unique([id, professionalProfileId])
   @@index([tenantId, status])
   @@index([professionalProfileId, status])
 }
@@ -385,7 +389,10 @@ model Service {
   updatedAt     DateTime @updatedAt
 
   profile      ProfessionalProfile            @relation(fields: [profileId], references: [id], onDelete: Cascade)
-  affiliation  ProfessionalTenantAffiliation? @relation(fields: [affiliationId], references: [id], onDelete: Restrict)
+  /// FK compuesta (D3): la afiliación referenciada debe pertenecer al **mismo** profesional que
+  /// `profileId` (`(affiliationId, profileId) -> (id, professionalProfileId)`). Con MATCH SIMPLE,
+  /// las filas legacy con `affiliationId` nulo quedan exentas del chequeo hasta el backfill.
+  affiliation  ProfessionalTenantAffiliation? @relation(fields: [affiliationId, profileId], references: [id, professionalProfileId], onDelete: Restrict)
   specialty    Specialty                      @relation(fields: [specialtyId], references: [id])
   appointments Appointment[]
 

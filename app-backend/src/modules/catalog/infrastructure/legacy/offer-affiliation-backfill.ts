@@ -41,8 +41,9 @@ export interface ApplyOfferAffiliationMappingsResult {
 }
 
 /**
- * Construye el reporte de dry-run: lee todas las ofertas y las afiliaciones activas de sus
- * profesionales y clasifica cada fila. No escribe en la base de datos.
+ * Construye el reporte de dry-run: lee todas las ofertas, las afiliaciones activas de sus
+ * profesionales y el propietario de la afiliación ya referenciada por cada fila; luego clasifica
+ * cada oferta. No escribe en la base de datos.
  */
 export async function buildOfferAffiliationInventory(
   db: PrismaClient = prisma
@@ -72,9 +73,44 @@ export async function buildOfferAffiliationInventory(
     candidatesByProfile.set(affiliation.professionalProfileId, candidates);
   }
 
-  const decisions = services.map((service) =>
-    classifyOfferAffiliationMapping(service, candidatesByProfile.get(service.profileId) ?? [])
+  // Afiliaciones ya referenciadas por ofertas: se resuelven sin filtrar por estado ni por
+  // profesional, de forma que el propietario real se pueda comparar y detectar vínculos cruzados.
+  const referencedAffiliationIds = Array.from(
+    new Set(
+      services
+        .map((service) => service.affiliationId)
+        .filter((id): id is number => id !== null)
+    )
   );
+
+  const referencedAffiliations = referencedAffiliationIds.length
+    ? await db.professionalTenantAffiliation.findMany({
+        where: { id: { in: referencedAffiliationIds } },
+        select: { id: true, professionalProfileId: true },
+      })
+    : [];
+
+  const referencedAffiliationById = new Map(
+    referencedAffiliations.map((affiliation) => [affiliation.id, affiliation.professionalProfileId])
+  );
+
+  const decisions = services.map((service) => {
+    const ownerProfileId =
+      service.affiliationId === null
+        ? undefined
+        : referencedAffiliationById.get(service.affiliationId);
+
+    const currentAffiliation =
+      service.affiliationId !== null && ownerProfileId !== undefined
+        ? { affiliationId: service.affiliationId, professionalProfileId: ownerProfileId }
+        : null;
+
+    return classifyOfferAffiliationMapping(
+      service,
+      candidatesByProfile.get(service.profileId) ?? [],
+      currentAffiliation
+    );
+  });
 
   return { decisions, summary: summarizeOfferAffiliationInventory(decisions) };
 }
@@ -170,9 +206,24 @@ function printInventory(report: OfferAffiliationInventoryReport): void {
   console.log(`  · Ya vinculadas (se omiten):             ${summary.alreadyMapped}`);
   console.log(`  · Ambiguas (varias afiliaciones):        ${summary.ambiguous}`);
   console.log(`  · Huérfanas (sin afiliación activa):     ${summary.orphan}`);
+  console.log(`  · Inconsistentes (otro profesional):     ${summary.inconsistent}`);
   console.log(`  · Requieren decisión humana:             ${summary.requiresHumanDecision}`);
   console.log("");
   console.log("No se escribió nada. Para aplicar, genere un mapping aprobado y use --apply.");
+
+  const inconsistencies = report.decisions.filter(
+    (decision) => decision.kind === "INCONSISTENT"
+  );
+
+  if (inconsistencies.length > 0) {
+    console.log("");
+    console.log("Errores: ofertas vinculadas a una afiliación que no pertenece a su profesional:");
+    for (const decision of inconsistencies) {
+      console.log(
+        `  · servicio ${decision.serviceId} ("${decision.serviceName}", profesional ${decision.profileId}): ${decision.reason}`
+      );
+    }
+  }
 
   const humanDecisions = report.decisions.filter(
     (decision) => decision.kind === "AMBIGUOUS" || decision.kind === "ORPHAN"

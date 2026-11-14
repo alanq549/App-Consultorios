@@ -5,11 +5,12 @@
 ///   1. Unicidad por afiliación: el mismo nombre de oferta convive en dos afiliaciones distintas
 ///      con términos comerciales independientes (aceptación de Misión 3).
 ///   2. Integridad referencial: la base rechaza una oferta ligada a una afiliación inexistente.
-///   3. Sin asignación por defecto: el backfill rechaza una afiliación de otro profesional y no
-///      escribe nada.
-///   4. Clasificación real del inventario: unívoco, ambiguo y huérfano según D8.
-///   5. Apply idempotente y repetible del mapping aprobado.
-///   6. Alcance por afiliación: las ofertas no cruzan entre afiliaciones/tenants.
+///   3. Garantía profesional↔afiliación: la base (FK compuesta) rechaza una oferta cuya afiliación
+///      pertenece a otro profesional, sin escribir nada.
+///   4. Sin asignación por defecto: el backfill rechaza una afiliación de otro profesional.
+///   5. Clasificación real del inventario: unívoco, ambiguo, huérfano y ya mapeado según D8.
+///   6. Apply idempotente y repetible del mapping aprobado.
+///   7. Alcance por afiliación: las ofertas no cruzan entre afiliaciones/tenants.
 
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import prisma from "@/shared/database/prisma";
@@ -260,10 +261,48 @@ describe("Oferta por afiliación — integridad y backfill (PostgreSQL)", () => 
     expect(code).toBe("P2003");
   });
 
-  it("clasifica el inventario real en unívoco, ambiguo y huérfano", async () => {
+  it("impide vincular una oferta a la afiliación de otro profesional (garantía D3 en la base)", async () => {
+    const name = `Consulta cruzada ${suffix}`;
+
+    // `affiliationMultiA` pertenece a `professionalMulti`, pero la oferta se crea para
+    // `professionalSingle`: la FK compuesta debe rechazarlo aunque ambas referencias existan.
+    const code = await capturePrismaErrorCode(
+      prisma.service.create({
+        data: {
+          name,
+          description: "Oferta que intenta usar la afiliación de otro profesional",
+          durationMin: 30,
+          price: 100,
+          profileId: professionalSingle,
+          affiliationId: affiliationMultiA,
+          specialtyId,
+        },
+      })
+    );
+
+    expect(code).toBe("P2003");
+
+    const stored = await prisma.service.findFirst({ where: { name }, select: { id: true } });
+    expect(stored).toBeNull();
+  });
+
+  it("clasifica el inventario real en unívoco, ambiguo, huérfano y ya mapeado", async () => {
     const legacyMulti = await createLegacyOffer(professionalMulti, `Legacy multi ${suffix}`);
     const legacySingle = await createLegacyOffer(professionalSingle, `Legacy single ${suffix}`);
     const legacyOrphan = await createLegacyOffer(professionalOrphan, `Legacy orphan ${suffix}`);
+
+    const alreadyMapped = await prisma.service.create({
+      data: {
+        name: `Ya mapeada ${suffix}`,
+        description: "Oferta ya vinculada a su propia afiliación",
+        durationMin: 30,
+        price: 200,
+        profileId: professionalSingle,
+        affiliationId: affiliationSingle,
+        specialtyId,
+      },
+      select: { id: true },
+    });
 
     const report = await buildOfferAffiliationInventory();
     const byServiceId = new Map(report.decisions.map((decision) => [decision.serviceId, decision]));
@@ -281,6 +320,10 @@ describe("Oferta por afiliación — integridad y backfill (PostgreSQL)", () => 
     const decisionOrphan = byServiceId.get(legacyOrphan);
     expect(decisionOrphan?.kind).toBe("ORPHAN");
     expect(decisionOrphan?.proposedAffiliationId).toBeNull();
+
+    const decisionMapped = byServiceId.get(alreadyMapped.id);
+    expect(decisionMapped?.kind).toBe("ALREADY_MAPPED");
+    expect(decisionMapped?.proposedAffiliationId).toBe(affiliationSingle);
   });
 
   it("rechaza asignar una afiliación de otro profesional sin escribir nada", async () => {

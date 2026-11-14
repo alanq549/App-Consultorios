@@ -20,18 +20,28 @@ export interface ActiveAffiliationCandidate {
   tenantId: number;
 }
 
+/** Afiliación actualmente referenciada por una oferta, resuelta desde la base de datos. */
+export interface CurrentAffiliationRef {
+  affiliationId: number;
+  professionalProfileId: number;
+}
+
 /**
  * Baldes de la Etapa 2 de D8:
  * - `UNIQUE`: el profesional tiene exactamente una afiliación activa → mapping propuesto seguro.
  * - `AMBIGUOUS`: tiene más de una afiliación activa → requiere decisión humana explícita.
  * - `ORPHAN`: no tiene ninguna afiliación activa → requiere decisión humana explícita.
- * - `ALREADY_MAPPED`: la oferta ya está vinculada → se omite, garantizando un apply idempotente.
+ * - `ALREADY_MAPPED`: la oferta ya está vinculada a una afiliación de **su propio** profesional →
+ *   se omite, garantizando un apply idempotente.
+ * - `INCONSISTENT`: la oferta referencia una afiliación que no pertenece a su profesional (o que
+ *   no existe). Es un **error** que requiere corrección humana, no un vínculo válido.
  */
 export type OfferAffiliationMappingKind =
   | "UNIQUE"
   | "AMBIGUOUS"
   | "ORPHAN"
-  | "ALREADY_MAPPED";
+  | "ALREADY_MAPPED"
+  | "INCONSISTENT";
 
 /** Decisión de mapping para una oferta legacy concreta. */
 export interface OfferAffiliationMappingDecision {
@@ -49,13 +59,22 @@ export interface OfferAffiliationMappingDecision {
 }
 
 /**
- * Clasifica una oferta legacy según las afiliaciones activas de su profesional.
- * No asigna afiliación cuando hay cero o más de una candidata: en esos casos la decisión es
- * humana (D8, Etapa 2), y `proposedAffiliationId` queda en `null`.
+ * Clasifica una oferta legacy según las afiliaciones activas de su profesional y el vínculo que
+ * la fila ya tenga.
+ *
+ * - Si la oferta ya referencia una afiliación, se verifica que dicha afiliación pertenezca al
+ *   **mismo** profesional; si no corresponde (o no existe), se marca `INCONSISTENT` (error).
+ * - Si no tiene afiliación, se propone un mapping solo cuando hay exactamente una afiliación activa
+ *   (`UNIQUE`); con cero o más de una candidata la decisión es humana (D8, Etapa 2), y
+ *   `proposedAffiliationId` queda en `null`.
+ *
+ * `currentAffiliation` debe ser la afiliación referenciada por `service.affiliationId` resuelta
+ * desde la base (o `null` si la oferta no referencia ninguna o la referencia está rota).
  */
 export function classifyOfferAffiliationMapping(
   service: LegacyOfferRow,
-  activeAffiliations: readonly ActiveAffiliationCandidate[]
+  activeAffiliations: readonly ActiveAffiliationCandidate[],
+  currentAffiliation: CurrentAffiliationRef | null
 ): OfferAffiliationMappingDecision {
   const candidateAffiliationIds = activeAffiliations
     .map((affiliation) => affiliation.affiliationId)
@@ -70,12 +89,27 @@ export function classifyOfferAffiliationMapping(
   };
 
   if (service.affiliationId !== null) {
+    if (
+      currentAffiliation !== null &&
+      currentAffiliation.professionalProfileId === service.profileId
+    ) {
+      return {
+        ...base,
+        kind: "ALREADY_MAPPED",
+        proposedAffiliationId: service.affiliationId,
+        reason:
+          "La oferta ya está vinculada a una afiliación de su propio profesional; se omite para mantener el apply idempotente.",
+      };
+    }
+
     return {
       ...base,
-      kind: "ALREADY_MAPPED",
-      proposedAffiliationId: service.affiliationId,
+      kind: "INCONSISTENT",
+      proposedAffiliationId: null,
       reason:
-        "La oferta ya está vinculada a una afiliación; se omite para mantener el apply idempotente.",
+        currentAffiliation === null
+          ? `La oferta referencia la afiliación ${service.affiliationId}, que no existe; requiere corrección humana.`
+          : `La oferta referencia la afiliación ${service.affiliationId}, que pertenece a otro profesional; requiere corrección humana.`,
     };
   }
 
@@ -113,6 +147,8 @@ export interface OfferAffiliationInventorySummary {
   ambiguous: number;
   orphan: number;
   alreadyMapped: number;
+  /** Vínculos existentes que no corresponden al profesional de la oferta: errores a corregir. */
+  inconsistent: number;
   requiresHumanDecision: number;
 }
 
@@ -121,7 +157,10 @@ export interface OfferAffiliationInventoryReport {
   summary: OfferAffiliationInventorySummary;
 }
 
-/** Resume las decisiones del inventario en los tres baldes de aceptación de D8. */
+/**
+ * Resume las decisiones del inventario. Los vínculos `INCONSISTENT` son errores y, junto con los
+ * casos `AMBIGUOUS` y `ORPHAN`, quedan contabilizados como pendientes de decisión humana.
+ */
 export function summarizeOfferAffiliationInventory(
   decisions: readonly OfferAffiliationMappingDecision[]
 ): OfferAffiliationInventorySummary {
@@ -131,6 +170,7 @@ export function summarizeOfferAffiliationInventory(
     ambiguous: 0,
     orphan: 0,
     alreadyMapped: 0,
+    inconsistent: 0,
     requiresHumanDecision: 0,
   };
 
@@ -148,9 +188,12 @@ export function summarizeOfferAffiliationInventory(
       case "ALREADY_MAPPED":
         summary.alreadyMapped += 1;
         break;
+      case "INCONSISTENT":
+        summary.inconsistent += 1;
+        break;
     }
   }
 
-  summary.requiresHumanDecision = summary.ambiguous + summary.orphan;
+  summary.requiresHumanDecision = summary.ambiguous + summary.orphan + summary.inconsistent;
   return summary;
 }
