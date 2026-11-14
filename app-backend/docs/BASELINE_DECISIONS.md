@@ -613,7 +613,7 @@ No hay un blocker para **terminar la documentación de Fase 0**.
 Sí existen blockers para fases de implementación concretas:
 
 1. **Fase 4:** revisar/aprobar las decisiones D1–D8; la documentación por sí sola no autoriza implementación.
-2. **Fase 5:** decidir ownership y scope tenant de las ofertas de servicio, política de cambios con citas futuras y desactivación de Specialty; `ProfessionalSpecialty` ya tiene owner aprobado en Fase 4.
+2. **Fase 5:** resuelta — ownership y scope tenant de las ofertas de servicio, política de cambios con citas futuras y desactivación de Specialty quedaron aprobadas e implementadas (ver `FASE5_CATALOG/00-PLAN.md` y `FASE5_CATALOG/08-INTEGRACION-CIERRE.md`); `ProfessionalSpecialty` ya tiene owner aprobado en Fase 4.
 3. **Fase 6/7:** decidir timezone IANA/DST, ownership global o por afiliación de la agenda, semántica de fecha y semana, concurrencia por intervalos y efecto de cambios de service/schedule con citas futuras.
 4. **Fase 7:** resolver el invariant de participante de Appointment.
 5. **Fase 8/9:** decidir eventos/notificaciones y autoridad del rating.
