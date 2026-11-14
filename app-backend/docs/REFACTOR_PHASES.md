@@ -359,7 +359,7 @@ src/modules/profiles/
 
 El plano ejecutable se desglosa en misiones independientes de menos de 100 líneas en [FASE5_CATALOG/00-PLAN.md](FASE5_CATALOG/00-PLAN.md). La Misión 0 debe aprobar ownership y reglas de oferta/citas futuras antes de cambios de schema o backfill. Fase 4 ya aprobó Catalog como owner de `ProfessionalSpecialty` e implementó el port transaccional Profiles; Fase 5 debe integrarlo, no duplicarlo.
 
-**Estado de implementación (2026-11-14):** Misiones 0–7 implementadas y validadas localmente. La Misión 6 ([07-CATALOGO-PUBLICO.md](FASE5_CATALOG/07-CATALOGO-PUBLICO.md)) publica las proyecciones públicas con DTOs explícitos y aislamiento por tenant. La Misión 7 ([08-INTEGRACION-CIERRE.md](FASE5_CATALOG/08-INTEGRACION-CIERRE.md)) retira el legacy `src/modules/specialty/`, confirma la ausencia de duplicación activa y registra las excepciones y riesgos de Fase 6/7. Ambas quedan **pendientes de revisión independiente**.
+**Estado de implementación (2026-11-14):** Misiones 0–7 implementadas y validadas localmente. La Misión 6 ([07-CATALOGO-PUBLICO.md](FASE5_CATALOG/07-CATALOGO-PUBLICO.md)) publica las proyecciones públicas con DTOs explícitos y aislamiento por tenant. La Misión 7 ([08-INTEGRACION-CIERRE.md](FASE5_CATALOG/08-INTEGRACION-CIERRE.md)) retira el legacy `src/modules/specialty/`, confirma la ausencia de duplicación activa y registra las excepciones y riesgos de Fase 6/7. **Ambas aprobadas** en revisión independiente (2026-11-14); ver [Estado de Fase 5](#estado-de-fase-5).
 
 ### Objetivo
 
@@ -396,11 +396,23 @@ export interface CatalogReader {
 
 ### Criterios de aceptación
 
-- [ ] servicios y especialidades tienen un contexto propietario;
-- [ ] el servicio reservado pertenece al profesional y tenant correctos;
-- [ ] el precio y duración se leen desde un contrato estable;
-- [ ] no se exponen modelos Prisma como respuesta pública;
-- [ ] catálogo global y tenant-owned están diferenciados.
+- [x] servicios y especialidades tienen un contexto propietario;
+- [x] el servicio reservado pertenece al profesional y tenant correctos;
+- [x] el precio y duración se leen desde un contrato estable;
+- [x] no se exponen modelos Prisma como respuesta pública;
+- [x] catálogo global y tenant-owned están diferenciados.
+
+### Estado de Fase 5
+
+**`CLOSED / APPROVED` — 2026-11-14.** El Code Reviewer aprobó el cierre sin hallazgos bloqueantes (revisión independiente sobre el árbol de `feature/fase5-catalog`). Misiones 0–7 implementadas y validadas localmente: `npx tsc --noEmit` exit 0, suite `69 archivos / 569 tests` PASS, `npm run build` exit 0 y `prisma migrate status` "Database schema is up to date!". La fase se integra en `develop` (fast-forward) y queda cerrada.
+
+**Brechas trasladadas a fases posteriores (no resueltas por el contrato Catalog):**
+
+- Backfill de afiliación (Fase 3, diferido) — `catalog/infrastructure/legacy/*` permanece; requiere inventario, mapeos aprobados y dry-run antes de `--apply`.
+- Frontera de elegibilidad Profiles↔Catalog — `PrismaCatalogSpecialtyChecker` lee `professionalSpecialty` (owner Catalog) como puerto de Profiles; aceptado y documentado en [08-INTEGRACION-CIERRE.md](FASE5_CATALOG/08-INTEGRACION-CIERRE.md).
+- Snapshots y concurrencia de citas — corresponden a Fase 6/7.
+
+**Fase 6 — Scheduling** permanece **PLANIFICADA**: a la espera de planos y de las decisiones de timezone, convención de `dayOfWeek`, recurrencia/excepciones, autoridad de disponibilidad, política ante cambios con citas existentes y estrategia de concurrencia.
 
 ---
 
