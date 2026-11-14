@@ -2,18 +2,27 @@
 import { Router } from "express";
 import { AdminController } from "./admin.controller";
 import { authMiddleware, authorizeRole } from "@/middlewares/auth.middleware";
-import { ProfessionalSpecialtyController } from "../specialty/ProfessionalSpecialty/professionalSpecialty.controller";
+import type { ProfessionalSpecialtyController } from "@/modules/catalog";
 
-const router = Router();
+export interface AdminRouterDeps {
+  professionalSpecialtyController: ProfessionalSpecialtyController;
+}
 
-router.use(authMiddleware, authorizeRole("ADMIN"));
+export function createAdminRouter(deps: AdminRouterDeps): Router {
+  const router = Router();
 
-router.patch("/profiles/:profileId/review", AdminController.reviewProfessionalProfile);
-router.get("/professionals", AdminController.getAllProfiles);
-router.get("/profiles/pending", AdminController.getPendingProfiles);
-router.patch("/profiles/:profileId/status", AdminController.setProfileStatus);
-router.patch(
-  "/:professionalId/specialties/:specialtyId/status",
-  ProfessionalSpecialtyController.setStatus
-);
-export default router;
+  router.use(authMiddleware, authorizeRole("ADMIN"));
+
+  router.patch("/profiles/:profileId/review", AdminController.reviewProfessionalProfile);
+  router.get("/professionals", AdminController.getAllProfiles);
+  router.get("/profiles/pending", AdminController.getPendingProfiles);
+  router.patch("/profiles/:profileId/status", AdminController.setProfileStatus);
+  router.patch(
+    "/:professionalId/specialties/:specialtyId/status",
+    deps.professionalSpecialtyController.setStatus
+  );
+
+  return router;
+}
+
+export default createAdminRouter;

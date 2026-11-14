@@ -39,3 +39,40 @@ export class UnauthorizedSpecialtyOperationError extends CatalogDomainError {
   }
 }
 
+export class ProfessionalSpecialtyNotFoundError extends CatalogDomainError {
+  constructor(message = "La especialidad no está asignada al profesional") {
+    super(message);
+  }
+}
+
+export class ProfessionalSpecialtyAlreadyExistsError extends CatalogDomainError {
+  constructor(message = "El profesional ya solicitó esta especialidad") {
+    super(message);
+  }
+}
+
+export class MaxPendingSpecialtiesExceededError extends CatalogDomainError {
+  constructor(message = "No puedes solicitar más de 2 especialidades pendientes") {
+    super(message);
+  }
+}
+
+export class InvalidSpecialtyStatusError extends CatalogDomainError {
+  constructor(message = "Estado de especialidad inválido") {
+    super(message);
+  }
+}
+
+export class InvalidSpecialtyTransitionError extends CatalogDomainError {
+  constructor(message = "Transición de estado de especialidad no permitida") {
+    super(message);
+  }
+}
+
+export class ProfessionalProfileNotFoundError extends CatalogDomainError {
+  constructor(message = "Perfil profesional no encontrado") {
+    super(message);
+  }
+}
+
+

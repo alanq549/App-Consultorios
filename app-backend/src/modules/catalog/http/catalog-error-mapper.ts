@@ -9,6 +9,12 @@ import {
   SpecialtyInactiveError,
   InvalidSpecialtyDataError,
   UnauthorizedSpecialtyOperationError,
+  ProfessionalProfileNotFoundError,
+  ProfessionalSpecialtyNotFoundError,
+  ProfessionalSpecialtyAlreadyExistsError,
+  MaxPendingSpecialtiesExceededError,
+  InvalidSpecialtyStatusError,
+  InvalidSpecialtyTransitionError,
 } from "../domain/catalog-errors";
 
 export function mapCatalogErrorToHttp(error: unknown): Error {
@@ -16,7 +22,19 @@ export function mapCatalogErrorToHttp(error: unknown): Error {
     return new AppError(error.message, 404);
   }
 
+  if (error instanceof ProfessionalProfileNotFoundError) {
+    return new AppError(error.message, 404);
+  }
+
+  if (error instanceof ProfessionalSpecialtyNotFoundError) {
+    return new AppError(error.message, 404);
+  }
+
   if (error instanceof DuplicateSpecialtyError) {
+    return new AppError(error.message, 409);
+  }
+
+  if (error instanceof ProfessionalSpecialtyAlreadyExistsError) {
     return new AppError(error.message, 409);
   }
 

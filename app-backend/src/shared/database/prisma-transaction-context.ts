@@ -9,7 +9,8 @@ import prisma from "./prisma";
 import { Prisma } from "@prisma/client";
 import { TransactionContext } from "@/shared/types/transaction-context";
 
-export type { TransactionContext } from "@/shared/types/transaction-context";
+export type { TransactionContext, TransactionRunner } from "@/shared/types/transaction-context";
+import { TransactionRunner } from "@/shared/types/transaction-context";
 
 // Símbolo privado del transversal: solo este archivo puede leer o escribir esta clave sellada.
 const TX_CLIENT = Symbol("shared.prisma.tx");
@@ -65,3 +66,13 @@ export function extractPrismaClientFromContext(
 
   return txClient;
 }
+
+export class PrismaTransactionRunner implements TransactionRunner {
+  async run<T>(fn: (tx: TransactionContext) => Promise<T>): Promise<T> {
+    return (prisma.$transaction as any)(async (txClient: Prisma.TransactionClient) => {
+      const txContext = createPrismaTransactionContext(txClient);
+      return fn(txContext);
+    });
+  }
+}
+

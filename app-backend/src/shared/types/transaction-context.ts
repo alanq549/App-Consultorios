@@ -7,3 +7,8 @@ export interface TransactionContext {
   readonly [key: string]: unknown;
 }
 
+export interface TransactionRunner {
+  run<T>(fn: (tx: TransactionContext) => Promise<T>): Promise<T>;
+}
+
+

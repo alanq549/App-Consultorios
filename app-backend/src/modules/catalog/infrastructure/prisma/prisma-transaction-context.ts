@@ -9,4 +9,5 @@ export {
   createPrismaTransactionContext,
   extractPrismaClientFromContext as extractPrismaClient,
   InvalidTransactionContextError as CatalogTransactionError,
+  PrismaTransactionRunner,
 } from "@/shared/database/prisma-transaction-context";
