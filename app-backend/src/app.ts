@@ -11,7 +11,7 @@ import professionalProfileRoutes from "./modules/users/professionalprofile/profe
 import serviceRoutes from "./modules/services/service.routes";
 import schedulesRoutes from "./modules/schedule/schedule.routes";
 import notificationRoutes from "@/modules/notifications/notifications.routes";
-import SpecialtyRoutes  from "./modules/specialty/specialty.routes";
+import { specialtyRouter } from "@/app.wiring";
 import AdminRoutes from "@/modules/admin/admin.routes"
 import  ReviewsRoutes from "@/modules/reviews/reviews.routes" 
 import tenancyRoutes from "@/modules/tenancy/http/tenancy.routes";
@@ -50,7 +50,7 @@ app.use("/api/auth", identityRoutes);
 app.use("/api/auth", authRoutes);
 app.use("/api/tenancy", tenancyRoutes);
 app.use("/api/admin", AdminRoutes);
-app.use("/api/specialties", SpecialtyRoutes);
+app.use("/api/specialties", specialtyRouter);
 app.use("/api/users", userRoutes); // otros endpoints usan json solo es avatar el que usa multipart/form-data, y multer lo maneja internamente sin afectar a los demás endpoints
 app.use("/api/config", configRoutes);
 app.use("/api/appointments", AppointmentRoutes)

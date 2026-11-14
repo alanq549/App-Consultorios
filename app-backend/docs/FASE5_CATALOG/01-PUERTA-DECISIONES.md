@@ -15,7 +15,7 @@ Resolver las decisiones bloqueantes de Fase 5 antes de modificar comportamiento,
 
 ## Estado
 
-**READY FOR REVIEW — 2026-11-10.** Registro formal de decisiones D1–D8 elaborado en [01-DECISIONES-ARQUITECTURA.md](01-DECISIONES-ARQUITECTURA.md) para revisión y aprobación independiente del code reviewer.
+**APROBADA — 2026-11-10.** Registro formal de decisiones D1–D8 formalizado y aprobado en revisión independiente de código (Commit `4097545`). Desbloquea el avance a Misión 1.
 
 ## Decisiones sometidas a aprobación (D1 – D8)
 

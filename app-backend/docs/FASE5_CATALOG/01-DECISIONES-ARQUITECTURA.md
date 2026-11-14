@@ -2,7 +2,7 @@
 
 ## Estado
 
-**READY FOR REVIEW — 2026-11-10.** Propuesta arquitectónica sometida a la revisión de código independiente antes de modificar código fuente, esquemas Prisma o datos persistidos. Define los límites, ownership, autorización y contratos de integración para las Misiones 1 a 7 de la Fase 5.
+**APROBADA — 2026-11-10.** Registro formal de decisiones D1–D8 aprobado en revisión independiente de código (Commit `4097545`). Define los límites, ownership, autorización y contratos de integración para las Misiones 1 a 7 de la Fase 5.
 
 ---
 

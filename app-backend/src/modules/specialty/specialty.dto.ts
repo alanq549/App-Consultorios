@@ -1,17 +1,10 @@
-///src/modules/specialty/specialty.dto.ts
-import { z } from "zod";
+/// ARCHIVO: src/modules/specialty/specialty.dto.ts
+/// @deprecated Redirigido a `@/modules/catalog/application/dto/specialty.dto` (Misión 1 - Fase 5)
 
-export const CreateSpecialtySchema = z.object({
-  name: z.string().min(3).max(100),
-  description: z.string().max(500).optional(),
-});
-
-export type CreateSpecialtyDTO = z.infer<typeof CreateSpecialtySchema>;
-
-export const UpdateSpecialtySchema = z.object({
-  name: z.string().min(3).max(100).optional(),
-  description: z.string().max(500).optional(),
-  isActive: z.boolean().optional(),
-});
-export type UpdateSpecialtyDTO = z.infer<typeof UpdateSpecialtySchema>;
-
+export {
+  CreateSpecialtySchema,
+  CreateSpecialtyDTO,
+  UpdateSpecialtySchema,
+  UpdateSpecialtyDTO,
+  SpecialtyResponseDTO,
+} from "@/modules/catalog/application/dto/specialty.dto";

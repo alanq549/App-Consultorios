@@ -10,15 +10,45 @@ import { DEFAULT_AVATAR } from "@/core/config/media";
 import { z } from "zod";
 import { AppError } from "@/shared/errors/AppError";
 import { NotificationService } from "../notifications/notifications.service";
+import type { CatalogTaxonomyContract } from "@/modules/catalog";
+import { createPrismaTransactionContext } from "@/shared/database/prisma-transaction-context";
 
 type RegisterInput = z.infer<typeof RegisterDTO>;
 
+export interface AuthServiceDependencies {
+  catalogTaxonomy: CatalogTaxonomyContract;
+}
 
 export class AuthService {
+  private static dependencies?: AuthServiceDependencies;
+
+  /**
+   * Inyecta dependencias desde el Composition Root de aplicación (src/app.wiring.ts).
+   * Mantiene al módulo Auth desacoplado del wiring global y de implementaciones concretas.
+   */
+  static injectDependencies(deps: AuthServiceDependencies): void {
+    AuthService.dependencies = deps;
+  }
+
+  private static getCatalogTaxonomy(override?: CatalogTaxonomyContract): CatalogTaxonomyContract {
+    const contract = override ?? AuthService.dependencies?.catalogTaxonomy;
+    if (!contract) {
+      throw new Error(
+        "[AuthService] CatalogTaxonomyContract no ha sido inyectado. " +
+          "Asegúrese de conectar las dependencias desde el composition root.",
+      );
+    }
+    return contract;
+  }
+
   // registro con creación de perfil y envío de email de verificación
-  static async register(data: RegisterInput) {
+  static async register(
+    data: RegisterInput,
+    depsOverride?: { catalogTaxonomy?: CatalogTaxonomyContract },
+  ) {
     const { email, password, role, profile } = data;
     const hashed = await bcrypt.hash(password, 10);
+    const catalogTaxonomy = AuthService.getCatalogTaxonomy(depsOverride?.catalogTaxonomy);
 
     try {
       const { user, token } = await prisma.$transaction(async (tx) => {
@@ -40,9 +70,10 @@ export class AuthService {
           if (!profile.specialtyId)
             throw new Error("Specialty requerida para profesionales");
 
-          const specialtyExists = await tx.specialty.findUnique({
-            where: { id: profile.specialtyId },
-          });
+          const specialtyExists = await catalogTaxonomy.findActiveById(
+            profile.specialtyId,
+            createPrismaTransactionContext(tx),
+          );
           if (!specialtyExists) throw new Error("Specialty inválida");
 
           await tx.professionalProfile.create({

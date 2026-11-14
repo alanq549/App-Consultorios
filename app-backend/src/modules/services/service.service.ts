@@ -1,18 +1,52 @@
 // src/modules/service/service.service.ts
 import prisma from "@/shared/database/prisma";
 import { CreateServiceDTO, UpdateServiceDTO } from "./service.dto";
-import { PrismaActiveAffiliationChecker } from "@/modules/profiles/affiliations/infrastructure/prisma/prisma-active-affiliation-checker";
+import type { ActiveAffiliationChecker } from "@/modules/profiles";
+import type { CatalogTaxonomyContract } from "@/modules/catalog";
 
-/// Alcance multi-tenant del catálogo: las tablas de catálogo no guardan `tenantId`, así que la
-/// pertenencia se deriva de la afiliación activa del perfil profesional en el tenant solicitado.
-const activeAffiliationChecker = new PrismaActiveAffiliationChecker();
+export interface ServiceServiceDependencies {
+  catalogTaxonomy: CatalogTaxonomyContract;
+  affiliationChecker: ActiveAffiliationChecker;
+}
 
 export class ServiceService {
+  private static dependencies?: ServiceServiceDependencies;
+
+  /**
+   * Inyecta dependencias desde el Composition Root de aplicación (src/app.wiring.ts).
+   * Mantiene al módulo Services desacoplado del wiring global y de implementaciones concretas.
+   */
+  static injectDependencies(deps: ServiceServiceDependencies): void {
+    ServiceService.dependencies = deps;
+  }
+
+  private static getCatalogTaxonomy(): CatalogTaxonomyContract {
+    if (!ServiceService.dependencies?.catalogTaxonomy) {
+      throw new Error(
+        "[ServiceService] CatalogTaxonomyContract no ha sido inyectado. " +
+          "Asegúrese de conectar las dependencias desde el composition root.",
+      );
+    }
+    return ServiceService.dependencies.catalogTaxonomy;
+  }
+
+  private static getAffiliationChecker(): ActiveAffiliationChecker {
+    if (!ServiceService.dependencies?.affiliationChecker) {
+      throw new Error(
+        "[ServiceService] ActiveAffiliationChecker no ha sido inyectado. " +
+          "Asegúrese de conectar las dependencias desde el composition root.",
+      );
+    }
+    return ServiceService.dependencies.affiliationChecker;
+  }
+
   /// funcion para validar la especialidad del profesional
   private static async ensureProfessionalHasSpecialty(
     profileId: number,
     specialtyId: number,
   ) {
+    await ServiceService.getCatalogTaxonomy().ensureActiveSpecialtyExists(specialtyId);
+
     const hasSpecialty = await prisma.professionalSpecialty.findFirst({
       where: {
         professionalId: profileId,
@@ -89,7 +123,7 @@ export class ServiceService {
   /// @returns La lista de servicios, o `null` si el profesional no pertenece al tenant, para que
   ///          la ruta responda 404 uniforme sin revelar si el perfil existe.
   static async findByProfessional(profileId: number, tenantId: number) {
-    const isAffiliated = await activeAffiliationChecker.hasActiveAffiliation(
+    const isAffiliated = await ServiceService.getAffiliationChecker().hasActiveAffiliation(
       profileId,
       tenantId,
     );
