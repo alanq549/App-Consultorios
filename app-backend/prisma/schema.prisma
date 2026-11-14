@@ -133,6 +133,7 @@ model ProfessionalTenantAffiliation {
   tenant              Tenant                             @relation(fields: [tenantId], references: [id], onDelete: Restrict)
   revisions           ProfessionalAffiliationRevision[]
   auditHolds          ProfessionalAffiliationAuditHold[]
+  services            Service[]
 
   @@unique([professionalProfileId, tenantId])
   @@index([tenantId, status])
@@ -359,24 +360,42 @@ model Specialty {
   @@index([isActive])
 }
 
+/// Oferta clínica reservable (D3): pertenece a una afiliación profesional–tenant y no se
+/// hereda entre clínicas del mismo profesional.
+///
+/// Migración en dos etapas (D8, Misión 3): `affiliationId` se agrega **nullable** para no
+/// romper las filas legacy mientras el backfill no tenga mappings aprobados. Una vez aplicado
+/// el backfill y verificado que ninguna fila queda sin afiliación, una migración posterior lo
+/// hará `NOT NULL` y eliminará `profileId`, que queda **deprecado** desde ahora.
 model Service {
-  id          Int      @id @default(autoincrement())
-  name        String
-  description String
-  durationMin Int
-  price       Decimal  @db.Decimal(10, 2)
-  isActive    Boolean  @default(true)
-  profileId   Int
-  specialtyId Int
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id            Int      @id @default(autoincrement())
+  name          String
+  description   String
+  durationMin   Int
+  price         Decimal  @db.Decimal(10, 2)
+  isActive      Boolean  @default(true)
+  /// Deprecado (D3): referencia global al perfil. Se conserva mientras el backfill no esté
+  /// aplicado y será retirado tras poblar `affiliationId` en todas las filas.
+  profileId     Int
+  /// Afiliación profesional–tenant propietaria de la oferta. `null` solo en filas legacy
+  /// pendientes de backfill; ninguna oferta nueva debe crearse sin afiliación.
+  affiliationId Int?
+  specialtyId   Int
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 
-  profile      ProfessionalProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
-  specialty    Specialty           @relation(fields: [specialtyId], references: [id])
+  profile      ProfessionalProfile            @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  affiliation  ProfessionalTenantAffiliation? @relation(fields: [affiliationId], references: [id], onDelete: Restrict)
+  specialty    Specialty                      @relation(fields: [specialtyId], references: [id])
   appointments Appointment[]
 
-  @@unique([profileId, name])
+  /// Unicidad por afiliación (D3): permite el mismo nombre de oferta en consultorios distintos
+  /// con términos comerciales independientes. Reemplaza la restricción legacy
+  /// `@@unique([profileId, name])`; PostgreSQL trata cada `NULL` como distinto, de modo que las
+  /// filas legacy sin afiliación no colisionan entre sí mientras se completa el backfill.
+  @@unique([affiliationId, name])
   @@index([profileId, specialtyId])
+  @@index([affiliationId, specialtyId])
   @@index([isActive])
 }
 
