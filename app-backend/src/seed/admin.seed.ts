@@ -4,18 +4,25 @@ import bcrypt from "bcrypt";
 import { DEFAULT_AVATAR } from "@/core/config/media";
 
 export async function seedAdmin() {
-  const adminEmail = "admin@test.com";
+  const adminEmail = process.env.DEFAULT_ADMIN_EMAIL;
+  const adminPassword = process.env.DEFAULT_ADMIN_PASSWORD;
+
+  if (!adminEmail || !adminPassword) {
+    throw new Error(
+      "[SEED] ERROR: Faltan DEFAULT_ADMIN_EMAIL o DEFAULT_ADMIN_PASSWORD en el entorno. El seed administrativo no puede ejecutarse con valores predecibles."
+    );
+  }
 
   const adminExists = await prisma.user.findUnique({
     where: { email: adminEmail },
   });
 
   if (adminExists) {
-    console.log("[SEED] Admin ya existe ⚠️");// le puse aqui un 2 para diferenciar de otro mensaje similar, y resulto ser el mismo
+    console.log("[SEED] Admin ya existe ⚠️");
     return;
   }
 
-  const hashedPassword = await bcrypt.hash("Admin123", 10);
+  const hashedPassword = await bcrypt.hash(adminPassword, 10);
 
  await prisma.user.upsert({
   where: { email: adminEmail },

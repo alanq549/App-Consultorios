@@ -11,13 +11,13 @@ export const runSeeds = async () => {
 
   try {
     await seedAdmin();
-await seedSpecialties();
- await seedProfessionals();
- await seedSchedules();
- await seedClients();
-
+    await seedSpecialties();
+    await seedProfessionals();
+    await seedSchedules();
+    await seedClients();
   } catch (err) {
-    console.error("Error ejecutando seeds:", err);
+    console.error("❌ Error crítico ejecutando seeds:", err);
+    throw err; // Propagar para detener el arranque del servidor
   }
 
   console.log("✅ Seeds completados");

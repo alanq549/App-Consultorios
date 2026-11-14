@@ -2,7 +2,10 @@
 import { ActiveAffiliationCheckerPort } from "../ports/active-affiliation-checker.port";
 import { ProfessionalPublicSpecialtyQueryPort } from "../ports/professional-public-specialty-query.port";
 import { TransactionContext } from "@/shared/types/transaction-context";
-import { ProfessionalPublicSpecialtyDTO } from "../dto/professional-public-specialty.dto";
+import {
+  ProfessionalPublicSpecialtyDTO,
+  toProfessionalPublicSpecialtyDTO,
+} from "../dto/public-catalog.dto";
 
 export class ListProfessionalPublicSpecialtiesUseCase {
   constructor(
@@ -30,15 +33,6 @@ export class ListProfessionalPublicSpecialtiesUseCase {
     );
 
     // Proyección pública explícita: garantiza que NUNCA se expongan estados de elegibilidad (PENDING/REJECTED)
-    return records.map((record) => ({
-      specialtyId: record.specialtyId,
-      name: record.specialty.name,
-      description: record.specialty.description,
-      specialty: {
-        id: record.specialty.id,
-        name: record.specialty.name,
-        description: record.specialty.description,
-      },
-    }));
+    return records.map(toProfessionalPublicSpecialtyDTO);
   }
 }

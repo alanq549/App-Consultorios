@@ -7,9 +7,9 @@
 import { ActiveAffiliationCheckerPort } from "../ports/active-affiliation-checker.port";
 import { ServiceOfferRepository } from "../../domain/repositories/service-offer.repository";
 import {
-  ServiceOfferResponseDTO,
-  toServiceOfferResponseDTO,
-} from "../dto/service-offer.dto";
+  PublicServiceOfferDTO,
+  toPublicServiceOfferDTO,
+} from "../dto/public-catalog.dto";
 
 export interface ListProfessionalPublicOffersParams {
   profileId: number;
@@ -24,7 +24,7 @@ export class ListProfessionalPublicOffersUseCase {
 
   async execute(
     params: ListProfessionalPublicOffersParams,
-  ): Promise<ServiceOfferResponseDTO[] | null> {
+  ): Promise<PublicServiceOfferDTO[] | null> {
     const affiliationId = await this.affiliationChecker.findActiveAffiliationId(
       params.profileId,
       params.tenantId,
@@ -35,6 +35,6 @@ export class ListProfessionalPublicOffersUseCase {
     }
 
     const offers = await this.offerRepo.listActiveByAffiliation(affiliationId);
-    return offers.map(toServiceOfferResponseDTO);
+    return offers.map((offer) => toPublicServiceOfferDTO(offer.toSnapshot()));
   }
 }
