@@ -49,7 +49,7 @@ La severidad `P1/P2/P3` proviene de los baselines anteriores. `BLOCKER/NON-BLOCK
 | P1-CONTRACT-001 | Rol JWT forzado con `as any` | `auth.middleware.ts` asigna `payload.role as any`. | Puede aceptar un claim estructuralmente inválido en una frontera de autorización. | **BLOCKER para estabilizar Identity**, no bloquea el inventario. | Fase 1/2 | Contrato único de actor y validación de claims. |
 | P2-CONTRACT-008 | Respuestas protegidas derivadas directamente de Prisma | Controllers responden resultados de services/Prisma; mappers no cubren todos los casos. | La evidencia demuestra acoplamiento y riesgo de cambios de shape; no demuestra por sí sola exposición sensible actual. | **NON-BLOCKER** si se evita ampliar el acoplamiento; bloquea cerrar una migración de módulo. | Fases 1/4-9 | DTOs de salida y mappers. |
 | P2-OWNERSHIP-008 | Appointment no tiene garantía persistente del participante XOR | `clientProfileId` y `guestId` son opcionales independientes en Prisma. | Riesgo de datos ambiguos si una ruta o proceso incumple la regla; no se reprodujo creación inválida. | **BLOCKER para rediseñar Appointment**, no bloquea documentación. | Fase 7 | Decisión sobre guest y regla XOR. |
-| P1-OWNERSHIP-002 | Reserva y disponibilidad no tienen frontera transaccional única | Validación de schedule/overlap precede a `create`; restricciones no cubren todos los intervalos. | Riesgo de doble reserva bajo concurrencia. | **BLOCKER para declarar segura la migración de Appointments**. | Fase 7/10 | Política de concurrencia y timezone. |
+| P1-OWNERSHIP-002 | Reserva y disponibilidad no tienen frontera transaccional única | Validación de schedule/overlap precede a `create`; la fila bloqueada de Service no serializa reservas de distintos servicios y la unicidad no cubre intervalos que empiezan en horas distintas. | Riesgo de doble reserva bajo concurrencia. | **BLOCKER para aprobar Scheduling y declarar segura la migración de Appointments**. | Fase 6/7/10 | Decisión de ownership temporal, política de intervalos y mecanismo común de lock/constraint. |
 | P1-OWNERSHIP-003 | Rating se escribe desde Reviews sobre ProfessionalProfile | Review + rating se actualizan en una transacción; no hay autoridad conceptual definida. | Divergencia ante correcciones, borrados o concurrencia; probabilidad futura media. | **DEFERRED**, pero bloquea consolidar Reviews sin decisión de rating. | Fase 9 | Decisión sobre rating derivado/proyección. |
 | P2-SEC-001 | Dos middlewares de rol | `authorizeRole` y `requireRole` tienen tipos y respuestas diferentes. | Políticas divergentes; probabilidad de inconsistencia alta al añadir permisos. | **NON-BLOCKER** para Fase 1; blocker para una política de autorización final. | Fase 1/3 | Actor, roles y membership. |
 | P2-SEC-002 | Claims JWT sin validación estructural | Payload se castea después de verificar firma. | Contrato de autenticación débil. | **NON-BLOCKER temporal**; no debe duplicarse en código nuevo. | Fase 1/2 | P1-CONTRACT-001. |
@@ -171,6 +171,7 @@ Estas decisiones requieren conocimiento del producto, clientes y operación. La 
     - Afecta `date`, `startMin`, disponibilidad, confirmación y cron.
     - Opciones: timezone del tenant; del profesional; del establecimiento; UTC con conversión explícita.
     - No asumir que las conversiones actuales UTC/local son la regla final.
+    - Propuesta de Fase 6 D0-1/D0-9: zona IANA global en `ProfessionalProfile`, configurada por endpoint autenticado dedicado y sincronizada transaccionalmente con reservas mediante lock común; cada cita captura zona e instantes UTC. Pendiente de aprobación formal.
 
 11. **¿Qué política de cancelación y pago existe?**
     - Afecta estados, permisos, worker y eventual integración de pagos.
@@ -526,7 +527,7 @@ Estas dependencias no justifican copiar el orden técnico actual; precisamente s
 3. Tenancy no debe implementarse parcialmente: todas las superficies tenant-owned deben tener una política coherente.
 4. Profiles debe estabilizar ownership profesional antes de Catalog y Scheduling.
 5. Catalog debe definir qué service es reservable antes de Availability.
-6. Scheduling debe definir timezone y disponibilidad antes de Appointment.
+6. Scheduling debe definir timezone, ownership, disponibilidad y garantía de no solapamiento antes de cerrar su integración con Appointment.
 7. Appointments debe estabilizar estados y concurrencia antes de Reviews/Notifications dependientes.
 8. Notifications puede migrarse después de definir eventos de appointments/profiles/reviews, aunque el shared kernel puede preparar tipos técnicos.
 9. Reviews y Preferences pueden avanzar cuando sus propietarios y alcances estén decididos.
@@ -613,7 +614,7 @@ Sí existen blockers para fases de implementación concretas:
 
 1. **Fase 4:** revisar/aprobar las decisiones D1–D8; la documentación por sí sola no autoriza implementación.
 2. **Fase 5:** decidir ownership y scope tenant de las ofertas de servicio, política de cambios con citas futuras y desactivación de Specialty; `ProfessionalSpecialty` ya tiene owner aprobado en Fase 4.
-3. **Fase 6/7:** decidir timezone, disponibilidad, concurrencia y efecto de cambios de service/schedule.
+3. **Fase 6/7:** decidir timezone IANA/DST, ownership global o por afiliación de la agenda, semántica de fecha y semana, concurrencia por intervalos y efecto de cambios de service/schedule con citas futuras.
 4. **Fase 7:** resolver el invariant de participante de Appointment.
 5. **Fase 8/9:** decidir eventos/notificaciones y autoridad del rating.
 

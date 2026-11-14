@@ -412,7 +412,7 @@ export interface CatalogReader {
 - Frontera de elegibilidad Profiles↔Catalog — `PrismaCatalogSpecialtyChecker` lee `professionalSpecialty` (owner Catalog) como puerto de Profiles; aceptado y documentado en [08-INTEGRACION-CIERRE.md](FASE5_CATALOG/08-INTEGRACION-CIERRE.md).
 - Snapshots y concurrencia de citas — corresponden a Fase 6/7.
 
-**Fase 6 — Scheduling** permanece **PLANIFICADA**: a la espera de planos y de las decisiones de timezone, convención de `dayOfWeek`, recurrencia/excepciones, autoridad de disponibilidad, política ante cambios con citas existentes y estrategia de concurrencia.
+**Fase 6 — Scheduling** permanece **PLANIFICADA / NO APROBADA PARA IMPLEMENTACIÓN**. El plano se desglosa en misiones independientes de menos de 100 líneas en [FASE6_SCHEDULING/00-PLAN.md](FASE6_SCHEDULING/00-PLAN.md). Misión 0 registra D0-1–D0-9, incluido flujo dedicado de Profiles para zona IANA y lock común con reservas. Requiere aprobación formal antes de código/schema/migraciones.
 
 ---
 
@@ -442,11 +442,16 @@ src/modules/scheduling/
 - [ ] la zona horaria está definida explícitamente;
 - [ ] fechas y minutos tienen validación consistente;
 - [ ] solapamientos se validan en una capa de dominio/aplicación;
-- [ ] existe una estrategia contra reservas concurrentes.
+- [ ] el ownership de la agenda (perfil global o afiliación) está aprobado y aplicado;
+- [ ] existe una garantía persistente y transaccional contra intervalos concurrentes, también entre servicios distintos;
+- [ ] Create/Update/Deactivate Schedule toman el lock del perfil antes de leer estado y serializan mutaciones entre sí y con reservas, con pruebas DB reales;
+- [ ] la política de cambios con citas futuras está aprobada, implementada y probada con el mismo lock transaccional de reserva (incluidas carreras con guest);
+- [ ] incremento, buffers, anticipación, estados ocupantes y slots parciales están aprobados y son consistentes entre disponibilidad y reserva;
+- [ ] domingo, DST, consultas de fecha civil y datos preexistentes están cubiertos por pruebas/migración.
 
 ### Bloqueador
 
-No aprobar esta fase si la disponibilidad parece libre pero dos requests concurrentes pueden reservar el mismo slot.
+No iniciar ni aprobar esta fase si la zona, el ownership de agenda, el mecanismo de exclusión o la semántica de citas existentes siguen ambiguos. No aprobar si dos requests concurrentes para servicios distintos pueden reservar intervalos solapados.
 
 ---
 
@@ -596,7 +601,7 @@ Esta sección no implementa ninguna fase. Define qué decisiones deben estar cer
 | Fase 3 — Tenancy | Deben estar cerrados como mínimo: significado de `ADMIN`; membership simple o múltiple; estrategia de tenant resolution; ownership inicial de perfiles; y tratamiento de actores públicos/guest. También debe definirse qué superficies son tenant-owned antes de aplicar aislamiento. |
 | Fase 4 — Profiles | Las decisiones D1–D8 de ownership global/tenant, roles, lifecycle, specialty, certificados y visibilidad fueron **aprobadas e implementadas** en [FASE4_PROFILES/00-PLAN.md](FASE4_PROFILES/00-PLAN.md). Se resolvieron los gaps de visibilidad, desacoplamiento de storage, entrega autenticada de certificados y el contrato de suspensión coordinada con Catalog (D5). |
 | Fase 5 — Catalog | Deben estar definidos catálogo global versus tenant-owned, propiedad de `Specialty`, regla para servicios reservables y efecto de cambios con citas futuras. Integrar el contrato Profiles de D5: al revocar la última `ProfessionalSpecialty` aprobada, suspender `ProfessionalProfile` en la misma unidad transaccional y probar que deja de publicarse. |
-| Fase 6 — Scheduling | Deben estar definidos timezone del tenant/profesional, convención de `dayOfWeek`, modelo de horarios recurrentes/excepciones, autoridad de disponibilidad, política ante cambios con citas existentes y estrategia de concurrencia. |
+| Fase 6 — Scheduling | Aprobar D0-1–D0-9 en [FASE6_SCHEDULING/01-DECISIONES.md](FASE6_SCHEDULING/01-DECISIONES.md): timezone IANA, ruta/actor de configuración, lock compartido por cambios de zona, Create/Update/Deactivate (adquirido antes de leer estado) y reservas normales/guest, pruebas de carreras entre mutaciones y con reservas, DST, fecha civil/mapeo histórico, semana ISO, agenda global profile-owned (Fase 3 E), autoridad/excepciones, reglas de slots, constraint contra solapamientos y cambios compatibles con citas. Hasta aprobación formal, no iniciar implementación. |
 | Fase 7 — Appointments | Deben estar definidos el invariant de participante cliente/guest, lifecycle de guest, snapshots históricos de servicio/precio/duración/profesional/clínica/timezone, políticas de cancelación y pago, autoridad de reserva y garantía contra doble booking. |
 | Fase 8 — Notifications | Deben estar definidos canales, ownership tenant/usuario, eventos que producen notificaciones, retry, idempotencia, retención y comportamiento ante fallos parciales. `NotificationService` actual no debe confundirse con el bounded context candidato `Notifications`. |
 | Fase 9 — Reviews y Preferences | Reviews requiere decisión sobre rating derivado/proyección, moderación/eliminación, visibilidad y retención. Preferences requiere decidir si `CustomConfig` es personal, tenant-owned o dividido. Preferences puede evolucionar parcialmente después de Identity si su alcance tenant queda explícitamente pendiente. |
